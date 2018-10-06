@@ -1,47 +1,36 @@
-#!/usr/bin/python
 
-import argparse
-import signal
-import sys
-import time
+import bisect
+import datetime
 import threading
 import requests
 import json
-import datetime
 import re
 import xml.etree.ElementTree as ET
-import pytz
+import glucose
 
 # Dexcom Share API credits:
 # https://gist.github.com/StephenBlackWasAlreadyTaken/adb0525344bedade1e25
 
-def parseDateTime(val):
-    res = re.search("Date\((\d*)", val)
-    epoch = float(res.group(1)) / 1000
-    return datetime.datetime.utcfromtimestamp(epoch)
-
-class DexcomGlucoseValue():
-    def __init__(self, jsonResponse):
-        self.dt = parseDateTime(jsonResponse["DT"])
-        self.wt = parseDateTime(jsonResponse["WT"])
-        self.st = parseDateTime(jsonResponse["ST"])
-        self.value = float(jsonResponse["Value"])
-        self.trend = int(jsonResponse["Trend"])
-
-    def equals(self, other):
-        return self.dt == other.dt and self.wt == other.wt and self.st == other.st and self.value == other.value and self.trend == other.trend
-
-    def __str__(self):
-        return "DT: %s WT: %s ST: %s Trend: %d Value: %f" % (self.dt, self.wt, self.st, self.trend, self.value)
-
-class DexcomShareSession():
-    def __init__(self, address, username, password, sessionToken = None, verbose = None):
-        self.address = address
+class ShareSession():
+    def __init__(self, location, username, password, sessionToken = None, verbose = False, callback = None):
+        if location == "us":
+            self.address = "share1.dexcom.com"
+        elif location == "eu":
+            self.address = "shareous1.dexcom.com"
+        else:
+            raise ValueError("Unknown location type")
         self.username = username
         self.password = password
         self.sessionId = sessionToken
         self.running = False
         self.verbose = verbose is not None
+        if callback is None:
+            self.callback = self.printCallback
+        else:
+            self.callback = callback
+
+    def printCallback(self, gv):
+        print gv
 
     def verboseLog(self, message):
         if self.verbose:
@@ -56,7 +45,10 @@ class DexcomShareSession():
         self.serverTimeDelta = None
         self.requestTimer = None
         self.lastGlucose = None
+        self.gvList = []
+
         self.running = True
+
         if self.sessionId is not None:
             self.loggedIn = True
         else:
@@ -108,9 +100,12 @@ class DexcomShareSession():
                 self.setNextRequestTimer(self.getWaitTimeForValidReading())
             else:
                 self.lastGlucose = gv
-                print gv
+                self.callback(gv)
+
+                self.backFillIfNeeded()
+
                 glucoseAge = datetime.datetime.utcnow() - gv.st + self.serverTimeDelta
-                self.verboseLog("received new glucose value, with an age of %s" % glucoseAge)
+                self.verboseLog("received new glucose value, with an age of %s, %s" % (glucoseAge, gv))
                 waitTime = 300 - glucoseAge.total_seconds()
                 self.setNextRequestTimer(max(waitTime, 5))
 
@@ -141,6 +136,58 @@ class DexcomShareSession():
                 self.verboseLog("Server date/time: %s Offset to local time: %s" % (serverTime, self.serverTimeDelta))
                 break
 
+    def backFillIfNeeded(self):
+        self.gvList.append(self.lastGlucose.st)
+
+        cutOffDate = datetime.datetime.utcnow() - datetime.timedelta(minutes=180)
+        cutOffPosition = bisect.bisect_right(self.gvList, cutOffDate)
+        if cutOffPosition:
+            self.gvList = self.gvList[cutOffPosition:]
+        else:
+            self.gvList = []
+
+        # 180 minutes => 180/5 = 36 measurements at most, 35 min. if all are received
+        if len(self.gvList) >= 35:
+            return
+
+        self.verboseLog("Missing measurements within the last 3 hours, attempting to backfill..")
+
+        gvs = self.getMultipleGlucoseValues(1440, 1024)
+
+        if gvs is None:
+            return
+        self.verboseLog("Received %d glucose values from history" % len(gvs))
+
+        newList = []
+
+        gvCurrent = None
+        if len(self.gvList) > 0:
+            gvCurrentIndex = 0
+            gvCurrent = self.gvList[gvCurrentIndex]
+
+        for i in range(len(gvs)-1, 0, -1):
+            gvToBackFill = gvs[i]
+
+            while gvCurrent is not None and gvCurrent < gvToBackFill.st:
+                newList.append(gvCurrent.st)
+                gvCurrentIndex += 1
+                if gvCurrentIndex > len(gvList):
+                    gvCurrent = None
+                    break
+                gvCurrent = self.gvList[gvCurrent]
+
+            if gvCurrent is not None and gvCurrent == gvToBackFill.st:
+                gvCurrentIndex += 1
+                if gvCurrentIndex <= len(gvList):
+                    gvCurrent = self.gvList[gvCurrent]
+            else:
+                self.verboseLog("Backfilling glucose value: " + str(gvToBackFill))
+                self.callback(gvToBackFill)
+
+            newList.append(gvToBackFill.st)
+        
+        self.gvList = newList
+
     def login(self):
         url = "https://%s/ShareWebServices/Services/General/LoginPublisherAccountByName" % self.address
         headers = { "Accept":"application/json",
@@ -160,47 +207,26 @@ class DexcomShareSession():
             self.verboseLog("Login successful, session id: %s" % self.sessionId)
             self.loggedIn = True
 
-    def getLastGlucoseValue(self):
+    def getMultipleGlucoseValues(self, minutes, maxCount):
         if not self.loggedIn:
             self.login()
-
         url = "https://%s/ShareWebServices/Services/Publisher/ReadPublisherLatestGlucoseValues" % self.address
-        url += "?sessionId=%s&minutes=1440&maxCount=1" % self.sessionId
+        url += "?sessionId=%s&minutes=%d&maxCount=%d" % (self.sessionId, minutes, maxCount)
         headers = { "Accept":"application/json",
                     "User-Agent":"Dexcom Share/3.0.2.11 CFNetwork/711.2.23 Darwin/14.0.0" }
          
         result = requests.post(url, headers = headers)
+        gvs = []
         if result.status_code == 200:
-            jsonResult = result.json()[0]
-            return DexcomGlucoseValue(jsonResult)
+            for jsonResult in result.json():
+                gvs.append(glucose.GlucoseValue(jsonResult))
+            return gvs
         else:
             return None
 
-def main():
-    parser = argparse.ArgumentParser()
+    def getLastGlucoseValue(self):
+        r = self.getMultipleGlucoseValues(1440, 1)
+        if r is not None:
+            return r[0]
+        return None
 
-    parser.add_argument("location", choices=[ "eu", "us" ])
-    parser.add_argument("-u", "--username", required = True)
-    parser.add_argument("-p", "--password", required = True)
-    parser.add_argument("-i", "--sessionid", required = False)
-    parser.add_argument("-v", "--verbose", required = False, action='store_true')
-
-    args = parser.parse_args()
-
-    if args.location == "us":
-        address = "share1.dexcom.com"
-    elif args.location == "eu":
-        address = "shareous1.dexcom.com"
-    else:
-        raise ValueError("Unknown location type")
-
-    session = DexcomShareSession(address, args.username, args.password, args.sessionid, args.verbose)
-    session.startMonitoring()
-    try:
-        raw_input()
-    except KeyboardInterrupt:
-        pass
-    session.stopMonitoring()
-
-if __name__ == '__main__':
-    main()
