@@ -7,6 +7,7 @@ from paho.mqtt.client import MQTTv311
 import argparse
 import threading
 import ssl
+from datetime import datetime
 
 def verboseLog(message):
     if args.verbose:
@@ -30,7 +31,9 @@ def on_mqtt_message_publish(client, userdata, mid):
 def glucoseValueCallback(gv):
     global mqttClient
     global shareSession
-    msg = "%s|%s|%s" % (gv.st, gv.trend, gv.value)
+
+    ts = int((gv.st - datetime.utcfromtimestamp(0)).total_seconds())
+    msg = "%d|%s|%s" % (ts, gv.trend, gv.value)
 
     latestGvDate = None
     if shareSession.gvList is not None and len(shareSession.gvList) > 0:
