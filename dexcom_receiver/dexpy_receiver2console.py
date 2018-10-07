@@ -1,5 +1,7 @@
 #!/usr/bin/python
 import argparse
+from dexpy_receiver import ReceiverSession
+import readdata
 
 def main():
     parser = argparse.ArgumentParser()
@@ -12,6 +14,10 @@ def main():
 
     args = parser.parse_args()
 
+    session = ReceiverSession()
+    gv = session.getLatestGlucoseValue()
+    print gv
+    
     try:
         raw_input()
     except KeyboardInterrupt:
