@@ -106,7 +106,7 @@ class ShareSession():
 
                 glucoseAge = datetime.datetime.utcnow() - gv.st + self.serverTimeDelta
                 self.verboseLog("received new glucose value, with an age of %s, %s" % (glucoseAge, gv))
-                waitTime = 300 - glucoseAge.total_seconds()
+                waitTime = 310 - glucoseAge.total_seconds()
                 self.setNextRequestTimer(max(waitTime, 5))
 
     def synchronizeTime(self):
