@@ -50,7 +50,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("-ms", "--mqtt-server", required = True)
     parser.add_argument("-msp", "--mqtt-server-port", default = 1883, required = False)
-    parser.add_argument("-mca", "--mqtt-ca", default = 1883, required = False)
+    parser.add_argument("-mca", "--mqtt-ca", required = False)
     parser.add_argument("-mci", "--mqtt-client-id", required = True)
     parser.add_argument("-mt", "--mqtt-topic", required = True)
     parser.add_argument("-dsl", "--dexcom-server-location", choices=[ "eu", "us" ], required=True)
