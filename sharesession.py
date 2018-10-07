@@ -171,14 +171,14 @@ class ShareSession():
             while gvCurrent is not None and gvCurrent < gvToBackFill.st:
                 newList.append(gvCurrent.st)
                 gvCurrentIndex += 1
-                if gvCurrentIndex > len(gvList):
+                if gvCurrentIndex > len(self.gvList):
                     gvCurrent = None
                     break
                 gvCurrent = self.gvList[gvCurrent]
 
             if gvCurrent is not None and gvCurrent == gvToBackFill.st:
                 gvCurrentIndex += 1
-                if gvCurrentIndex <= len(gvList):
+                if gvCurrentIndex <= len(self.gvList):
                     gvCurrent = self.gvList[gvCurrent]
             else:
                 self.verboseLog("Backfilling glucose value: " + str(gvToBackFill))
