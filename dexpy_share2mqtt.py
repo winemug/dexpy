@@ -3,6 +3,7 @@
 import sharesession
 import glucose
 import paho.mqtt.client as mqttc
+from paho.mqtt.client import MQTTv311
 import argparse
 import threading
 import ssl
@@ -61,7 +62,7 @@ def main():
 
     args = parser.parse_args()
 
-    mqttClient = mqttc.Client(client_id=args.mqtt_client_id, clean_session=True)
+    mqttClient = mqttc.Client(client_id=args.mqtt_client_id, clean_session=True, protocol=MQTTv311, transport="tcp")
 
     if args.mqtt_ca is not None:
         mqttClient.tls_set(ca_certs=args.mqtt_ca, certfile=None,
