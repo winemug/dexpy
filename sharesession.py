@@ -146,8 +146,8 @@ class ShareSession():
         else:
             self.gvList = []
 
-        # 180 minutes => 180/5 = 36 measurements at most, 35 min. if all are received
-        if len(self.gvList) >= 35:
+        # 180 minutes => 180/5 = 36 measurements to be had
+        if len(self.gvList) >= 36:
             return
 
         self.verboseLog("Missing measurements within the last 3 hours, attempting to backfill..")
@@ -174,12 +174,12 @@ class ShareSession():
                 if gvCurrentIndex > len(self.gvList):
                     gvCurrent = None
                     break
-                gvCurrent = self.gvList[gvCurrent]
+                gvCurrent = self.gvList[gvCurrentIndex]
 
             if gvCurrent is not None and gvCurrent == gvToBackFill.st:
                 gvCurrentIndex += 1
                 if gvCurrentIndex <= len(self.gvList):
-                    gvCurrent = self.gvList[gvCurrent]
+                    gvCurrent = self.gvList[gvCurrentIndex]
             else:
                 self.verboseLog("Backfilling glucose value: " + str(gvToBackFill))
                 self.callback(gvToBackFill)
