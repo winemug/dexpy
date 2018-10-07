@@ -76,6 +76,32 @@ class ReadPacket(object):
 
 
 class Dexcom(object):
+  G4_PARSER_MAP = {
+    'USER_EVENT_DATA': database_records.EventRecord,
+    'METER_DATA': database_records.MeterRecord,
+    'CAL_SET': database_records.Calibration,
+    'INSERTION_TIME': database_records.InsertionRecord,
+    'EGV_DATA': database_records.EGVRecord,
+    'SENSOR_DATA': database_records.SensorRecord,
+  }
+
+  G5_PARSER_MAP = {
+    'USER_EVENT_DATA': database_records.EventRecord,
+    'METER_DATA': database_records.G5MeterRecord,
+    'CAL_SET': database_records.Calibration,
+    'INSERTION_TIME': database_records.G5InsertionRecord,
+    'EGV_DATA': database_records.G5EGVRecord,
+    'SENSOR_DATA': database_records.SensorRecord,
+    'USER_SETTING_DATA': database_records.G5UserSettings }
+
+  G6_PARSER_MAP = {
+    'USER_EVENT_DATA': database_records.EventRecord,
+    'METER_DATA': database_records.G5MeterRecord,
+    'CAL_SET': database_records.Calibration,
+    'INSERTION_TIME': database_records.G5InsertionRecord,
+    'EGV_DATA': database_records.G5EGVRecord,
+    'SENSOR_DATA': database_records.SensorRecord,
+    'USER_SETTING_DATA': database_records.G6UserSettings }
 
   @staticmethod
   def FindDevice():
@@ -84,7 +110,6 @@ class Dexcom(object):
                                    constants.DEXCOM_G4_USB_PRODUCT)
     except:
         return None
-
   def GetDeviceType(self):
     try:
         device = self.FindDevice()
@@ -94,28 +119,19 @@ class Dexcom(object):
         else:
           fw_ver = self.GetFirmwareHeader().get('FirmwareVersion')
           if fw_ver.startswith("4."):   # Not sure about G4 firmware versions
-              return 'g4'
+            self.PARSER_MAP = self.G4_PARSER_MAP
+            return 'g4'
           elif fw_ver.startswith("5.0."): # 5.0.1.043 = G5 Receiver Firmware
-              return 'g5'
+            self.PARSER_MAP = self.G5_PARSER_MAP
+            return 'g5'
           elif fw_ver.startswith("5."):   # 5.1.1.022 = G6 Receiver Firmware
-              return 'g6'
+            self.PARSER_MAP = self.G6_PARSER_MAP
+            return 'g6'
           else: # unrecognized firmware version
               return fw_ver
     except Exception as e:
         print 'GetDeviceType() : Exception =', e
         return None
-
-  @classmethod
-  def MyThing(cls):
-    device = cls.FindDevice()
-    if not device:
-      return
-
-    dex = cls(device)
-    records = dex.GetLastRecords('EGV_DATA')
-    for rec in records:
-      print rec
-
 
   @classmethod
   def LocateAndDownload(cls):
@@ -203,6 +219,7 @@ class Dexcom(object):
   def __init__(self, port_path, port=None):
     self._port_name = port_path
     self._port = port
+    self.GetDeviceType()
 
   def Connect(self):
     try:
@@ -480,14 +497,6 @@ class Dexcom(object):
     for x in xrange(header[1]):
       yield record_type.Create(data, x)
 
-  PARSER_MAP = {
-      'USER_EVENT_DATA': database_records.EventRecord,
-      'METER_DATA': database_records.MeterRecord,
-      'CAL_SET': database_records.Calibration,
-      'INSERTION_TIME': database_records.InsertionRecord,
-      'EGV_DATA': database_records.EGVRecord,
-      'SENSOR_DATA': database_records.SensorRecord,
-  }
   def ParsePage(self, header, data):
     record_type = constants.RECORD_TYPES[ord(header[2])]
     revision = int(header[3])
@@ -534,47 +543,3 @@ class Dexcom(object):
     for x in range(start, end):
       records.extend(self.ReadDatabasePage(record_type, x))
     return records
-
-class DexcomG5 (Dexcom):
-  PARSER_MAP = {
-      'USER_EVENT_DATA': database_records.EventRecord,
-      'METER_DATA': database_records.G5MeterRecord,
-      'CAL_SET': database_records.Calibration,
-      'INSERTION_TIME': database_records.G5InsertionRecord,
-      'EGV_DATA': database_records.G5EGVRecord,
-      'SENSOR_DATA': database_records.SensorRecord,
-      'USER_SETTING_DATA': database_records.G5UserSettings,
-  }
-
-class DexcomG6 (Dexcom):
-  PARSER_MAP = {
-      'USER_EVENT_DATA': database_records.EventRecord,
-      'METER_DATA': database_records.G5MeterRecord,
-      'CAL_SET': database_records.Calibration,
-      'INSERTION_TIME': database_records.G5InsertionRecord,
-      'EGV_DATA': database_records.G5EGVRecord,
-      'SENSOR_DATA': database_records.SensorRecord,
-      'USER_SETTING_DATA': database_records.G6UserSettings,
-  }
-
-def GetDevice (port):
-  workInst = Dexcom(port)
-  devType = workInst.GetDeviceType()  # g4 | g5 | g6
-  if devType == 'g6':
-    #print 'GetDevice() creating DexcomG6 class'
-    return DexcomG6(port)
-  elif devType == 'g5':
-    #print 'GetDevice() creating DexcomG5 class'
-    return DexcomG5(port)
-  elif devType == 'g4':
-    #print 'GetDevice() creating DexcomG4 class'
-    return workInst
-  else:
-    print 'readdata.GetDevice() : Unrecognized firmware version', devType
-    return None
-
-if __name__ == '__main__':
-  dport = Dexcom.FindDevice()
-  myDevice = GetDevice(dport)
-  if myDevice:
-      myDevice.MyThing()
