@@ -101,7 +101,8 @@ class Dexcom(object):
     'INSERTION_TIME': database_records.G5InsertionRecord,
     'EGV_DATA': database_records.G5EGVRecord,
     'SENSOR_DATA': database_records.SensorRecord,
-    'USER_SETTING_DATA': database_records.G6UserSettings }
+    'USER_SETTING_DATA': database_records.G6UserSettings,
+    'BACKFILLED_EGV': database_records.G5EGVRecord }
 
   @staticmethod
   def FindDevice():
