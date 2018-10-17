@@ -72,12 +72,15 @@ class ShareSession():
         self.requestTimer.start()
 
     def getWaitTimeForValidReading(self):
-        waitTimes = [2, 2, 5, 5, 10, 10, 10, 15, 15, 20, 20, 30, 30, 60, 60, 60, 60, 120]
+        waitTimes = [2, 2, 5, 5]
         lwtIndex = self.lastWaitTimeForValidReading
         if lwtIndex is None:
             lwtIndex = 0
         elif lwtIndex < len(waitTimes) - 1:
             lwtIndex += 1
+	else:
+	    self.loggedIn = False
+	    lwtIndex = 0
         self.lastWaitTimeForValidReading = lwtIndex
         return waitTimes[lwtIndex]
 
@@ -107,6 +110,7 @@ class ShareSession():
                 glucoseAge = datetime.datetime.utcnow() - gv.st + self.serverTimeDelta
                 self.verboseLog("received new glucose value, with an age of %s, %s" % (glucoseAge, gv))
                 waitTime = 310 - glucoseAge.total_seconds()
+		self.lastWaitTimeForValidReading = None
                 self.setNextRequestTimer(max(waitTime, 5))
 
     def synchronizeTime(self):
@@ -185,7 +189,7 @@ class ShareSession():
                 self.callback(gvToBackFill)
 
             newList.append(gvToBackFill.st)
-        
+
         self.gvList = newList
 
     def login(self):
@@ -196,7 +200,7 @@ class ShareSession():
         payload = { "accountName":self.username,
                  "password":self.password,
                  "applicationId":"d8665ade-9673-4e27-9ff6-92db4ce13d13" }
-         
+
         self.verboseLog("Attempting to login")
         result = requests.post(url, data = json.dumps(payload) , headers = headers)
         if result.status_code != 200:
@@ -214,7 +218,7 @@ class ShareSession():
         url += "?sessionId=%s&minutes=%d&maxCount=%d" % (self.sessionId, minutes, maxCount)
         headers = { "Accept":"application/json",
                     "User-Agent":"Dexcom Share/3.0.2.11 CFNetwork/711.2.23 Darwin/14.0.0" }
-         
+ 
         result = requests.post(url, headers = headers)
         gvs = []
         if result.status_code == 200:
