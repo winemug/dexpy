@@ -3,7 +3,7 @@ import json
 import re
 
 def parseDateTime(val):
-    res = re.search("Date\((\d*)", val)
+    res = re.search("Date\\((\\d*)", val)
     epoch = float(res.group(1)) / 1000
     return datetime.datetime.utcfromtimestamp(epoch)
 

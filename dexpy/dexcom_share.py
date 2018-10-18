@@ -11,7 +11,7 @@ import glucose
 # Dexcom Share API credits:
 # https://gist.github.com/StephenBlackWasAlreadyTaken/adb0525344bedade1e25
 
-class ShareSession():
+class DexcomShareSession():
     def __init__(self, location, username, password, sessionToken = None, verbose = False, callback = None):
         if location == "us":
             self.address = "share1.dexcom.com"

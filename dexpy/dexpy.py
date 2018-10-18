@@ -24,25 +24,6 @@ def on_mqtt_message_receive(client, userdata, msg):
 def on_mqtt_message_publish(client, userdata, mid):
     verboseLog("mqtt message sent: " + mid)
 
-def glucoseValueCallback(gv):
-    # global mqttClient
-    # global shareSession
-
-    # ts = int((gv.st - datetime.utcfromtimestamp(0)).total_seconds())
-    # msg = "%d|%s|%s" % (ts, gv.trend, gv.value)
-
-    # latestGvDate = None
-    # if shareSession.gvList is not None and len(shareSession.gvList) > 0:
-    #     latestGvDate = shareSession.gvList[-1]
-
-    # if latestGvDate is None or latestGvDate < gv.st:
-    #     verboseLog("publishing glucose value to mqtt server")
-    #     mqttClient.publish(args.mqtt_topic, payload = msg, retain = True, qos = 2)
-    # else:
-    #     verboseLog("publishing historical value to mqtt server")
-    #     mqttClient.publish(args.mqtt_topic, payload = msg, retain = False, qos = 1)
-    pass
-
 def main():
     global args
 
