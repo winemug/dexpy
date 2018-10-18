@@ -12,7 +12,7 @@ from glucose import GlucoseValue
 # https://gist.github.com/StephenBlackWasAlreadyTaken/adb0525344bedade1e25
 
 class DexcomShareSession():
-    def __init__(self, location, username, password, callback):
+    def __init__(self, location, username, password, backfillHours, callback):
         if location == "us":
             self.address = "share1.dexcom.com"
         elif location == "eu":
@@ -23,6 +23,7 @@ class DexcomShareSession():
         self.password = password
         self.sessionId = None
         self.monitorTimer = None
+        self.backfillHours = int(backfillHours)
         self.callback = callback
 
     def startMonitoring(self):
@@ -126,20 +127,19 @@ class DexcomShareSession():
     def backFillIfNeeded(self):
         self.gvList.append(self.lastGlucose.st)
 
-        cutOffDate = datetime.datetime.utcnow() - datetime.timedelta(minutes=180)
+        cutOffDate = datetime.datetime.utcnow() - datetime.timedelta(minutes=self.backfillHours)
         cutOffPosition = bisect.bisect_right(self.gvList, cutOffDate)
         if cutOffPosition:
             self.gvList = self.gvList[cutOffPosition:]
         else:
             self.gvList = []
 
-        # 180 minutes => 180/5 = 36 measurements to be had
-        if len(self.gvList) >= 36:
+        if len(self.gvList) >= self.backfillHours * 12:
             return
 
-        logging.info("Missing measurements within the last 3 hours, attempting to backfill..")
+        logging.info("Missing measurements within the last %d hours, attempting to backfill.." % self.backfillHours)
 
-        gvs = self.getMultipleGlucoseValues(1440, 1024)
+        gvs = self.getMultipleGlucoseValues(self.backfillHours * 60, 4096)
 
         if gvs is None:
             return

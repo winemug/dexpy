@@ -75,6 +75,7 @@ def main():
         dexcomShareSession = DexcomShareSession(args.DEXCOM_SHARE_SERVER_LOCATION, \
                                                 args.DEXCOM_SHARE_USERNAME, \
                                                 args.DEXCOM_SHARE_PASSWORD, \
+                                                args.DEXCOM_SHARE_BACKFILL, \
                                                 glucoseValueCallback)
         
         if args.DEXCOM_SHARE_LISTEN:
