@@ -22,21 +22,18 @@ class DexcomShareSession():
         self.username = username
         self.password = password
         self.sessionId = None
-        self.running = False
+        self.monitorTimer = None
         self.callback = callback
 
     def startMonitoring(self):
-        if self.running:
+        if self.monitorTimer is not None:
             return
 
         self.lastWaitTimeForValidReading = None
         self.lastTimeSynchronization = None
         self.serverTimeDelta = None
-        self.requestTimer = None
         self.lastGlucose = None
         self.gvList = []
-
-        self.running = True
 
         if self.sessionId is not None:
             self.loggedIn = True
@@ -44,18 +41,15 @@ class DexcomShareSession():
             self.loggedIn = False
 
         logging.info("started dexcom share client")
-        self.onTimer()
+        self.setNextRequestTimer()
 
     def stopMonitoring(self):
-        if not self.running:
-            return
-        if self.requestTimer is not None:
-            self.requestTimer.cancel()
-        self.running = False
+        if self.monitorTimer is not None:
+            self.monitorTimer.cancel()
 
-    def setNextRequestTimer(self, seconds):
-        if self.requestTimer is not None:
-            self.requestTimer.cancel()
+    def setNextRequestTimer(self, seconds = 0.1):
+        if self.monitorTimer is not None:
+            self.monitorTimer.cancel()
         logging.debug("next request in %d seconds" % seconds)
         self.requestTimer = threading.Timer(seconds, self.onTimer)
         self.requestTimer.start()

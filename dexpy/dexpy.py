@@ -71,20 +71,31 @@ def main():
 
     dexcomShareSession = None
     if args.DEXCOM_SHARE_LISTEN or args.DEXCOM_SHARE_UPDATE:
-        logging.info("starting dexcom session")
+        logging.info("starting dexcom share session")
         dexcomShareSession = DexcomShareSession(args.DEXCOM_SHARE_SERVER_LOCATION, \
                                                 args.DEXCOM_SHARE_USERNAME, \
                                                 args.DEXCOM_SHARE_PASSWORD, \
                                                 glucoseValueCallback)
+        
+        if args.DEXCOM_SHARE_LISTEN:
+            logging.info("starting monitoring the share server")
+            dexcomShareSession.startMonitoring()
 
     if args.DEXCOM_RECEIVER_LISTEN:
-        logging.info("connecting to receiver")
+        logging.info("connecting to usb receiver")
 
     print("press any key to stop")
     try:
         raw_input()
     except KeyboardInterrupt:
         pass
+
+    if args.DEXCOM_RECEIVER_LISTEN:
+        logging.info("stopping listening to dexcom receiver")
+
+    if args.DEXCOM_SHARE_LISTEN:
+        logging.info("stopping listening on dexcom share server")
+        dexcomShareSession.stopMonitoring()
 
     if args.MQTT_ENABLED:
         mqttClient.loop_stop()
