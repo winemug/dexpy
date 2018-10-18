@@ -7,22 +7,23 @@ import threading
 import ssl
 from datetime import datetime
 import time
-
-def verboseLog(message):
-    if args.DEXPY_VERBOSE:
-        print message
+from dexcom_share import DexcomShareSession
+import logging
 
 def on_mqtt_connect(client, userdata, flags, rc):
-    verboseLog("Connected to mqtt server with result code "+str(rc))
+    logging.info("Connected to mqtt server with result code "+str(rc))
 
 def on_mqtt_disconnect(client, userdata, rc):
-    verboseLog("Disconnected from mqtt with result code "+str(rc))
+    logging.info("Disconnected from mqtt with result code "+str(rc))
 
 def on_mqtt_message_receive(client, userdata, msg):
-    verboseLog("mqtt message received: " + msg)
+    logging.info("mqtt message received: " + msg)
 
 def on_mqtt_message_publish(client, userdata, mid):
-    verboseLog("mqtt message sent: " + mid)
+    logging.info("mqtt message sent: " + mid)
+
+def glucoseValueCallback(gv):
+    logging.debug("Received glucose value: " + str(gv))
 
 def main():
     global args
@@ -43,9 +44,11 @@ def main():
     parser.add_argument("-mt", "--MQTT-TOPIC", required=False) 
     parser.add_argument("-mssl", "--MQTT-SSL", required=False) 
     parser.add_argument("-msslca", "--MQTT-SSL-CA", required=False)
-    parser.add_argument("-verbose", "--DEXPY-VERBOSE", required=False)
+    parser.add_argument("-ll", "--DEXPY-LOG-LEVEL", required=False)
 
     args = parser.parse_args()
+
+    logging.basicConfig(level=args.DEXPY_LOG_LEVEL)
 
     mqttClient = None
     if args.MQTT_ENABLED:
@@ -62,17 +65,22 @@ def main():
         mqttClient.on_message = on_mqtt_message_receive
         mqttClient.on_publish = on_mqtt_message_publish
 
-        verboseLog("connecting to mqtt service")
+        logging.info("connecting to mqtt service")
         mqttClient.connect(args.MQTT_SERVER, port=args.MQTT_PORT)
         mqttClient.loop_start()
 
+    dexcomShareSession = None
     if args.DEXCOM_SHARE_LISTEN or args.DEXCOM_SHARE_UPDATE:
-        verboseLog("starting dexcom session")
+        logging.info("starting dexcom session")
+        dexcomShareSession = DexcomShareSession(args.DEXCOM_SHARE_SERVER_LOCATION, \
+                                                args.DEXCOM_SHARE_USERNAME, \
+                                                args.DEXCOM_SHARE_PASSWORD, \
+                                                glucoseValueCallback)
 
     if args.DEXCOM_RECEIVER_LISTEN:
-        verboseLog("connecting to receiver")
+        logging.info("connecting to receiver")
 
-    verboseLog("press any key to stop")
+    print("press any key to stop")
     try:
         raw_input()
     except KeyboardInterrupt:

@@ -19,4 +19,4 @@ services:
                   - MQTT_TOPIC=cgm/dexcom
                   - MQTT_SSL=True
                   - MQTT_SSL_CA=./path.to.intermediate.certificate.crt
-                  - DEXPY_VERBOSE=False
+                  - DEXPY_LOG_LEVEL=ERROR

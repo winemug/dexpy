@@ -1,4 +1,4 @@
-
+import logging
 import bisect
 import datetime
 import threading
@@ -6,13 +6,13 @@ import requests
 import json
 import re
 import xml.etree.ElementTree as ET
-import glucose
+from glucose import GlucoseValue
 
 # Dexcom Share API credits:
 # https://gist.github.com/StephenBlackWasAlreadyTaken/adb0525344bedade1e25
 
 class DexcomShareSession():
-    def __init__(self, location, username, password, sessionToken = None, verbose = False, callback = None):
+    def __init__(self, location, username, password, callback):
         if location == "us":
             self.address = "share1.dexcom.com"
         elif location == "eu":
@@ -21,20 +21,9 @@ class DexcomShareSession():
             raise ValueError("Unknown location type")
         self.username = username
         self.password = password
-        self.sessionId = sessionToken
+        self.sessionId = None
         self.running = False
-        self.verbose = verbose is not None
-        if callback is None:
-            self.callback = self.printCallback
-        else:
-            self.callback = callback
-
-    def printCallback(self, gv):
-        print gv
-
-    def verboseLog(self, message):
-        if self.verbose:
-            print message
+        self.callback = callback
 
     def startMonitoring(self):
         if self.running:
@@ -54,7 +43,7 @@ class DexcomShareSession():
         else:
             self.loggedIn = False
 
-        self.verboseLog("started monitoring")
+        logging.info("started dexcom share client")
         self.onTimer()
 
     def stopMonitoring(self):
@@ -67,7 +56,7 @@ class DexcomShareSession():
     def setNextRequestTimer(self, seconds):
         if self.requestTimer is not None:
             self.requestTimer.cancel()
-        self.verboseLog("next request in %d seconds" % seconds)
+        logging.debug("next request in %d seconds" % seconds)
         self.requestTimer = threading.Timer(seconds, self.onTimer)
         self.requestTimer.start()
 
@@ -92,14 +81,14 @@ class DexcomShareSession():
             return
 
         self.synchronizeTime()
-        self.verboseLog("Requesting glucose value")
+        logging.debug("Requesting glucose value")
         gv = self.getLastGlucoseValue()
         if gv is None:
-            self.verboseLog("Received no value")
+            logging.warning("Received no glucose value")
             self.setNextRequestTimer(self.getWaitTimeForValidReading())
         else:
             if self.lastGlucose is not None and self.lastGlucose.equals(gv):
-                self.verboseLog("received the same glucose value as last time")
+                logging.debug("received the same glucose value as last time")
                 self.setNextRequestTimer(self.getWaitTimeForValidReading())
             else:
                 self.lastGlucose = gv
@@ -108,7 +97,7 @@ class DexcomShareSession():
                 self.backFillIfNeeded()
 
                 glucoseAge = datetime.datetime.utcnow() - gv.st + self.serverTimeDelta
-                self.verboseLog("received new glucose value, with an age of %s, %s" % (glucoseAge, gv))
+                logging.info("received new glucose value, with an age of %s, %s" % (glucoseAge, gv))
                 waitTime = 310 - glucoseAge.total_seconds()
 		self.lastWaitTimeForValidReading = None
                 self.setNextRequestTimer(max(waitTime, 5))
@@ -119,13 +108,13 @@ class DexcomShareSession():
                 and (datetime.datetime.now() - self.lastTimeSynchronization).total_seconds() < 60*60*2:
             return
 
-        self.verboseLog("requesting server time")
+        logging.debug("requesting server time")
         url = "https://%s/ShareWebServices/Services/General/SystemUtcTime" % self.address
         beforeReq = datetime.datetime.utcnow()
         response = requests.get(url)
         afterReq = datetime.datetime.utcnow()
         if response.status_code != 200:
-            self.verboseLog("Failed to get system time from dexcom server")
+            logging.warning("Failed to get system time from dexcom server")
             self.setNextRequestTimer(60)
             return
 
@@ -137,7 +126,7 @@ class DexcomShareSession():
                 serverTime = datetime.datetime.strptime(child.text[:-4], "%Y-%m-%dT%H:%M:%S.%f")
                 self.serverTimeDelta = localAverageTime - serverTime
                 self.lastTimeSynchronization = datetime.datetime.now()
-                self.verboseLog("Server date/time: %s Offset to local time: %s" % (serverTime, self.serverTimeDelta))
+                logging.debug("Server date/time: %s Offset to local time: %s" % (serverTime, self.serverTimeDelta))
                 break
 
     def backFillIfNeeded(self):
@@ -154,13 +143,13 @@ class DexcomShareSession():
         if len(self.gvList) >= 36:
             return
 
-        self.verboseLog("Missing measurements within the last 3 hours, attempting to backfill..")
+        logging.info("Missing measurements within the last 3 hours, attempting to backfill..")
 
         gvs = self.getMultipleGlucoseValues(1440, 1024)
 
         if gvs is None:
             return
-        self.verboseLog("Received %d glucose values from history" % len(gvs))
+        logging.debug("Received %d glucose values from history" % len(gvs))
 
         newList = []
 
@@ -185,7 +174,7 @@ class DexcomShareSession():
                 if gvCurrentIndex <= len(self.gvList):
                     gvCurrent = self.gvList[gvCurrentIndex]
             else:
-                self.verboseLog("Backfilling glucose value: " + str(gvToBackFill))
+                logging.debug("Backfilling glucose value: " + str(gvToBackFill))
                 self.callback(gvToBackFill)
 
             newList.append(gvToBackFill.st)
@@ -201,14 +190,14 @@ class DexcomShareSession():
                  "password":self.password,
                  "applicationId":"d8665ade-9673-4e27-9ff6-92db4ce13d13" }
 
-        self.verboseLog("Attempting to login")
+        logging.debug("Attempting to login")
         result = requests.post(url, data = json.dumps(payload) , headers = headers)
         if result.status_code != 200:
-            self.verboseLog("Login failed, Http result code %d text: %s" % (result.status_code, result.text))
+            logging.error("Login failed, Http result code %d text: %s" % (result.status_code, result.text))
             self.loggedIn = False
         else:
             self.sessionId = result.text[1:-1]
-            self.verboseLog("Login successful, session id: %s" % self.sessionId)
+            logging.info("Login successful, session id: %s" % self.sessionId)
             self.loggedIn = True
 
     def getMultipleGlucoseValues(self, minutes, maxCount):
@@ -223,7 +212,7 @@ class DexcomShareSession():
         gvs = []
         if result.status_code == 200:
             for jsonResult in result.json():
-                gvs.append(glucose.GlucoseValue(jsonResult))
+                gvs.append(GlucoseValue(jsonResult))
             return gvs
         else:
             return None
