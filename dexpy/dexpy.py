@@ -44,7 +44,7 @@ def glucoseValueCallback(gv):
 
     shouldRetain = False
     i = bisect.bisect_right(gvDates, gv.st)
-    if i > 0 and gvDates[i] == gv.st:
+    if i > 0 and gvDates[i-1] == gv.st:
         logging.debug("Received value is a duplicate, skipping.")
         return
     elif i == len(gvDates):
