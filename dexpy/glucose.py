@@ -8,15 +8,25 @@ def parseDateTime(val):
     return datetime.datetime.utcfromtimestamp(epoch)
 
 class GlucoseValue():
-    def __init__(self, jsonResponse):
-        self.dt = parseDateTime(jsonResponse["DT"])
-        self.wt = parseDateTime(jsonResponse["WT"])
-        self.st = parseDateTime(jsonResponse["ST"])
-        self.value = float(jsonResponse["Value"])
-        self.trend = int(jsonResponse["Trend"])
+    def __init__(self, dt, wt, st, value, trend):
+        self.dt = dt
+        self.wt = wt
+        self.st = st
+        self.value = value
+        self.trend = trend
+        self.trackingId = None
+
+    @staticmethod
+    def fromJson(jsonResponse):
+        dt = parseDateTime(jsonResponse["DT"])
+        wt = parseDateTime(jsonResponse["WT"])
+        st = parseDateTime(jsonResponse["ST"])
+        value = float(jsonResponse["Value"])
+        trend = int(jsonResponse["Trend"])
+        return GlucoseValue(dt, wt, st, value, trend)
 
     def equals(self, other):
-        return self.dt == other.dt and self.wt == other.wt and self.st == other.st and self.value == other.value and self.trend == other.trend
+        return self.st == other.st
 
     def __str__(self):
         return "DT: %s WT: %s ST: %s Trend: %d Value: %f" % (self.dt, self.wt, self.st, self.trend, self.value)
