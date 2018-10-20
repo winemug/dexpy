@@ -12,5 +12,5 @@ python ./dexpy.py \
         -mci $MQTT_CLIENT_ID \
         -mt $MQTT_TOPIC \
         -mssl $MQTT_SSL \
-        -msslca $MQTT_SSL_CA
+        -msslca $MQTT_SSL_CA \
         -ll $DEXPY_LOG_LEVEL
