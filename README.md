@@ -1,17 +1,33 @@
 # dexpy
-A set of tools for reading cgm data from dexcom g5/g6 receivers and Android/iPhone applications in realtime (or close to it). The readings, as they arrive, can then be used in other applications such as artificial pancreas systems and various monitoring tools.
+This is a docker container for reading cgm data from dexcom g5/g6 receivers and Android/iPhone applications in realtime (or close to it). The readings, as they arrive, can then be used in other applications such as artificial pancreas systems and various monitoring tools.
+
+## Purpose
+
+To breathe life into the dexcom receiver.
+
+## Background
+
+...
 
 ## Features
-- Reads sensor data as soon as it's available
-- Automatic back-fill of up to 24h of data
-- Sample client for sending realtime glucose values to an MQTT server
 
-## Dexpy Share
-Connects to dexcom servers via internet using user's dexcom share account and reports glucose readings.
+- Implemented:
+  - Reads sensor data from dexcom share server and the dexcom receiver
+  - Automatic back-fills data retained on the sensor
+  - Publishes the glucose readings to an MQTT server for further integration to other applications
+- Not yet working:
+  - Update data on the dexcom share server with receiver readings
 
-The protocol is implemented according to the [reverse engineering](https://gist.github.com/StephenBlackWasAlreadyTaken/adb0525344bedade1e25) performed by github user [StephenBlackWasAlreadyTaken](https://gist.github.com/StephenBlackWasAlreadyTaken)
+## Installation
 
-## Dexpy Receiver
-Connects to the dexcom receiver via USB port and reports glucose readings.
+...tbd..
 
-The code for communicating with the receiver via USB is borrowed from the [dexctrack](https://github.com/DexcTrack/dexctrack) project, which in turn is based on the [dexcom_reader](https://github.com/openaps/dexcom_reader) project.
+## Sample Uses
+
+...tbd..
+
+## Acknowledgements
+
+Dexcom Share protocol is implemented according to the [reverse engineering](https://gist.github.com/StephenBlackWasAlreadyTaken/adb0525344bedade1e25) performed by github user [StephenBlackWasAlreadyTaken](https://gist.github.com/StephenBlackWasAlreadyTaken)
+
+Dexcom Receiver code for communicating with the receiver via USB is borrowed from the [dexctrack](https://github.com/DexcTrack/dexctrack) project, which in turn is based on the [dexcom_reader](https://github.com/openaps/dexcom_reader) project. Further enhanced to support Dexcom G6 receiver backfill.
