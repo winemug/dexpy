@@ -12,7 +12,7 @@ from glucose import GlucoseValue
 # https://gist.github.com/StephenBlackWasAlreadyTaken/adb0525344bedade1e25
 
 class DexcomShareSession():
-    def __init__(self, location, username, password, backfillHours, callback):
+    def __init__(self, location, username, password, callback):
         if location == "us":
             self.address = "share1.dexcom.com"
         elif location == "eu":
@@ -22,12 +22,11 @@ class DexcomShareSession():
         self.username = username
         self.password = password
         self.sessionId = None
-        self.monitorTimer = None
-        self.backfillHours = int(backfillHours)
+        self.requestTimer = None
         self.callback = callback
 
     def startMonitoring(self):
-        if self.monitorTimer is not None:
+        if self.requestTimer is not None:
             return
 
         self.lastWaitTimeForValidReading = None
@@ -45,12 +44,12 @@ class DexcomShareSession():
         self.setNextRequestTimer()
 
     def stopMonitoring(self):
-        if self.monitorTimer is not None:
-            self.monitorTimer.cancel()
+        if self.requestTimer is not None:
+            self.requestTimer.cancel()
 
     def setNextRequestTimer(self, seconds = 0.1):
-        if self.monitorTimer is not None:
-            self.monitorTimer.cancel()
+        if self.requestTimer is not None:
+            self.requestTimer.cancel()
         logging.debug("next request in %d seconds" % seconds)
         self.requestTimer = threading.Timer(seconds, self.onTimer)
         self.requestTimer.start()
@@ -127,19 +126,19 @@ class DexcomShareSession():
     def backFillIfNeeded(self):
         self.gvList.append(self.lastGlucose.st)
 
-        cutOffDate = datetime.datetime.utcnow() - datetime.timedelta(minutes=self.backfillHours)
+        cutOffDate = datetime.datetime.utcnow() - datetime.timedelta(hours = 3)
         cutOffPosition = bisect.bisect_right(self.gvList, cutOffDate)
         if cutOffPosition:
             self.gvList = self.gvList[cutOffPosition:]
         else:
             self.gvList = []
 
-        if len(self.gvList) >= self.backfillHours * 12:
+        if len(self.gvList) >= 36:
             return
 
-        logging.info("Missing measurements within the last %d hours, attempting to backfill.." % self.backfillHours)
+        logging.info("Missing measurements within the last 3 hours, attempting to backfill..")
 
-        gvs = self.getMultipleGlucoseValues(self.backfillHours * 60, 4096)
+        gvs = self.getMultipleGlucoseValues(180, 36)
 
         if gvs is None:
             return
@@ -206,7 +205,7 @@ class DexcomShareSession():
         gvs = []
         if result.status_code == 200:
             for jsonResult in result.json():
-                gvs.append(GlucoseValue(jsonResult))
+                gvs.append(GlucoseValue.fromJson(jsonResult))
             return gvs
         else:
             return None

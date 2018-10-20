@@ -9,9 +9,7 @@ services:
                   - DEXCOM_SHARE_SERVER_LOCATION=eu
                   - DEXCOM_SHARE_USERNAME=dexcomuser
                   - DEXCOM_SHARE_PASSWORD=secretpassword
-                  - DEXCOM_SHARE_BACKFILL=24
                   - DEXCOM_RECEIVER_LISTEN=True
-                  - DEXCOM_RECEIVER_BACKFILL=72
                   - MQTT_ENABLED=True
                   - MQTT_SERVER=mymqqtserver
                   - MQTT_PORT=1883

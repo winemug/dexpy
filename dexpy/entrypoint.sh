@@ -5,9 +5,7 @@ python ./dexpy \
         -dssl $DEXCOM_SHARE_SERVER_LOCATION \
         -dsu $DEXCOM_SHARE_USERNAME \
         -dsp $DEXCOM_SHARE_PASSWORD \
-        -dsbf $DEXCOM_SHARE_BACKFILL \
         -drl $DEXCOM_RECEIVER_LISTEN \
-        -drbf $DEXCOM_RECEIVER_BACKFILL \
         -me $MQTT_ENABLED \
         -ms $MQTT_SERVER \
         -mp $MQTT_PORT \

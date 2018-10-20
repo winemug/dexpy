@@ -5,28 +5,60 @@ from paho.mqtt.client import MQTTv311
 import argparse
 import threading
 import ssl
-from datetime import datetime
+from datetime import datetime, time, timedelta
 import time
 from dexcom_share import DexcomShareSession
+from dexcom_receiver import DexcomReceiverSession
 import logging
+import bisect
+import sys
+
+gvDates = []
+mqttClient = None
+mqttLocalQueue = {}
+
+def cleanUpList():
+    global gvDates
+    cutOffDate = datetime.utcnow() - timedelta(hours = 3)
+    cutOffPosition = bisect.bisect_left(gvDates, cutOffDate)
+    if cutOffPosition:
+        gvDates = gvDates[cutOffPosition:]
+    else:
+        gvDates = []
 
 def on_mqtt_connect(client, userdata, flags, rc):
     logging.info("Connected to mqtt server with result code "+str(rc))
+    logging.debug("Pending %d messages in local queue" % len(mqttLocalQueue))
 
 def on_mqtt_disconnect(client, userdata, rc):
     logging.info("Disconnected from mqtt with result code "+str(rc))
+    logging.debug("Pending %d messages in local queue" % len(mqttLocalQueue))
 
 def on_mqtt_message_receive(client, userdata, msg):
     logging.info("mqtt message received: " + msg)
 
 def on_mqtt_message_publish(client, userdata, mid):
-    logging.info("mqtt message sent: " + mid)
+    logging.info("mqtt message published: " + str(mid))
+    if mqttLocalQueue.has_key(mid):
+        mqttLocalQueue.pop(mid)
+    else:
+        logging.debug("unknown message id: " + str(mid))
+    logging.debug("Pending %d messages in local queue" % len(mqttLocalQueue))
 
 def glucoseValueCallback(gv):
+    global mqttClient
     logging.debug("Received glucose value: " + str(gv))
+    if args.MQTT_ENABLED:
+        ts = int((gv.st - datetime.utcfromtimestamp(0)).total_seconds())
+        msg = "%d|%s|%s" % (ts, gv.trend, gv.value)
+        x, mid = mqttClient.publish(args.MQTT_TOPIC, payload = msg, retain = False, qos = 2)
+        logging.debug("publish to mqtt requested with message id: " + str(mid))
+        mqttLocalQueue[mid] = gv
+        logging.debug("Pending %d messages in local queue" % len(mqttLocalQueue))
 
 def main():
     global args
+    global mqttClient
 
     parser = argparse.ArgumentParser()
     parser.add_argument("-dsl", "--DEXCOM-SHARE-LISTEN", required=False) 
@@ -34,9 +66,7 @@ def main():
     parser.add_argument("-dssl", "--DEXCOM-SHARE-SERVER-LOCATION", required=False) 
     parser.add_argument("-dsun", "--DEXCOM-SHARE-USERNAME", required=False) 
     parser.add_argument("-dsp", "--DEXCOM-SHARE-PASSWORD", required=False) 
-    parser.add_argument("-dsbf", "--DEXCOM-SHARE-BACKFILL", required=False) 
     parser.add_argument("-drl", "--DEXCOM-RECEIVER-LISTEN", required=False) 
-    parser.add_argument("-drbf", "--DEXCOM-RECEIVER-BACKFILL", required=False) 
     parser.add_argument("-me", "--MQTT-ENABLED", required=False) 
     parser.add_argument("-ms", "--MQTT-SERVER", required=False) 
     parser.add_argument("-mp", "--MQTT-PORT", required=False) 
@@ -50,7 +80,6 @@ def main():
 
     logging.basicConfig(level=args.DEXPY_LOG_LEVEL)
 
-    mqttClient = None
     if args.MQTT_ENABLED:
         mqttClient = mqttc.Client(client_id=args.MQTT_CLIENT_ID, clean_session=True, protocol=MQTTv311, transport="tcp")
 
@@ -75,24 +104,23 @@ def main():
         dexcomShareSession = DexcomShareSession(args.DEXCOM_SHARE_SERVER_LOCATION, \
                                                 args.DEXCOM_SHARE_USERNAME, \
                                                 args.DEXCOM_SHARE_PASSWORD, \
-                                                args.DEXCOM_SHARE_BACKFILL, \
                                                 glucoseValueCallback)
         
         if args.DEXCOM_SHARE_LISTEN:
             logging.info("starting monitoring the share server")
             dexcomShareSession.startMonitoring()
 
+    dexcomReceiverSession = None
     if args.DEXCOM_RECEIVER_LISTEN:
         logging.info("connecting to usb receiver")
+        dexcomReceiverSession = DexcomReceiverSession(glucoseValueCallback)
+        dexcomReceiverSession.startMonitoring()
 
-    print("press any key to stop")
-    try:
-        raw_input()
-    except KeyboardInterrupt:
-        pass
+    raw_input()
 
     if args.DEXCOM_RECEIVER_LISTEN:
         logging.info("stopping listening to dexcom receiver")
+        dexcomReceiverSession.stopMonitoring()
 
     if args.DEXCOM_SHARE_LISTEN:
         logging.info("stopping listening on dexcom share server")
@@ -104,3 +132,4 @@ def main():
 
 if __name__ == '__main__':
     main()
+    sys.exit(0)
