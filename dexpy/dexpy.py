@@ -17,15 +17,6 @@ gvDates = []
 mqttClient = None
 mqttLocalQueue = {}
 
-def cleanUpList():
-    global gvDates
-    cutOffDate = datetime.utcnow() - timedelta(hours = 3)
-    cutOffPosition = bisect.bisect_left(gvDates, cutOffDate)
-    if cutOffPosition:
-        gvDates = gvDates[cutOffPosition:]
-    else:
-        gvDates = []
-
 def on_mqtt_connect(client, userdata, flags, rc):
     logging.info("Connected to mqtt server with result code "+str(rc))
     logging.debug("Pending %d messages in local queue" % len(mqttLocalQueue))
@@ -47,7 +38,30 @@ def on_mqtt_message_publish(client, userdata, mid):
 
 def glucoseValueCallback(gv):
     global mqttClient
-    logging.debug("Received glucose value: " + str(gv))
+    global gvDates
+
+    logging.debug("Received glucose value: %s" % gv)
+
+    i = bisect.bisect_right(gvDates, gv.st)
+    if i > 0 and gvDates[i] == gv.st:
+        logging.debug("Received value is a duplicate, skipping.")
+        return
+    elif i == len(gvDates):
+        gvDates.append(gv.st)
+    else:
+        newList = gvDates[0:i]
+        newList.append(gv.st)
+        newList.extend(gvDates[i:])
+        gvDates = newList
+
+    if len(gvDates) > 100:
+        cutOffDate = datetime.utcnow() - timedelta(hours = 3)
+        cutOffPosition = bisect.bisect_left(gvDates, cutOffDate)
+        if cutOffPosition:
+            gvDates = gvDates[cutOffPosition:]
+        else:
+            gvDates = []
+
     if args.MQTT_ENABLED:
         ts = int((gv.st - datetime.utcfromtimestamp(0)).total_seconds())
         msg = "%d|%s|%s" % (ts, gv.trend, gv.value)
