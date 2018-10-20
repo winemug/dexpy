@@ -42,12 +42,14 @@ def glucoseValueCallback(gv):
 
     logging.debug("Received glucose value: %s" % gv)
 
+    shouldRetain = False
     i = bisect.bisect_right(gvDates, gv.st)
     if i > 0 and gvDates[i] == gv.st:
         logging.debug("Received value is a duplicate, skipping.")
         return
     elif i == len(gvDates):
         gvDates.append(gv.st)
+        shouldRetain = True
     else:
         newList = gvDates[0:i]
         newList.append(gv.st)
@@ -65,7 +67,7 @@ def glucoseValueCallback(gv):
     if args.MQTT_ENABLED:
         ts = int((gv.st - datetime.utcfromtimestamp(0)).total_seconds())
         msg = "%d|%s|%s" % (ts, gv.trend, gv.value)
-        x, mid = mqttClient.publish(args.MQTT_TOPIC, payload = msg, retain = False, qos = 2)
+        x, mid = mqttClient.publish(args.MQTT_TOPIC, payload = msg, retain = shouldRetain, qos = 2)
         logging.debug("publish to mqtt requested with message id: " + str(mid))
         mqttLocalQueue[mid] = gv
         logging.debug("Pending %d messages in local queue" % len(mqttLocalQueue))
