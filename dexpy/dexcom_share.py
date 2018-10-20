@@ -55,15 +55,15 @@ class DexcomShareSession():
         self.requestTimer.start()
 
     def getWaitTimeForValidReading(self):
-        waitTimes = [2, 2, 5, 5]
+        waitTimes = [2, 2, 5, 5, 10, 10, 30, 30, 60]
         lwtIndex = self.lastWaitTimeForValidReading
         if lwtIndex is None:
             lwtIndex = 0
         elif lwtIndex < len(waitTimes) - 1:
             lwtIndex += 1
-	else:
-	    self.loggedIn = False
-	    lwtIndex = 0
+    	else:
+            self.loggedIn = False
+            lwtIndex = 0
         self.lastWaitTimeForValidReading = lwtIndex
         return waitTimes[lwtIndex]
 
@@ -93,7 +93,7 @@ class DexcomShareSession():
                 glucoseAge = datetime.datetime.utcnow() - gv.st + self.serverTimeDelta
                 logging.info("received new glucose value, with an age of %s, %s" % (glucoseAge, gv))
                 waitTime = 310 - glucoseAge.total_seconds()
-		self.lastWaitTimeForValidReading = None
+                self.lastWaitTimeForValidReading = None
                 self.setNextRequestTimer(max(waitTime, 5))
 
     def synchronizeTime(self):
