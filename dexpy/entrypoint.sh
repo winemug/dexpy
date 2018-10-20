@@ -1,9 +1,9 @@
 #!/bin/bash
-python ./dexpy \
+python ./dexpy.py \
         -dsl $DEXCOM_SHARE_LISTEN \
         -dsu $DEXCOM_SHARE_UPDATE \
         -dssl $DEXCOM_SHARE_SERVER_LOCATION \
-        -dsu $DEXCOM_SHARE_USERNAME \
+        -dsun $DEXCOM_SHARE_USERNAME \
         -dsp $DEXCOM_SHARE_PASSWORD \
         -drl $DEXCOM_RECEIVER_LISTEN \
         -me $MQTT_ENABLED \
@@ -13,4 +13,4 @@ python ./dexpy \
         -mt $MQTT_TOPIC \
         -mssl $MQTT_SSL \
         -msslca $MQTT_SSL_CA
-        -verbose $DEXPY_VERBOSE
+        -ll $DEXPY_LOG_LEVEL
