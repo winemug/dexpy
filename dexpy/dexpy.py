@@ -132,7 +132,10 @@ def main():
         dexcomReceiverSession = DexcomReceiverSession(glucoseValueCallback)
         dexcomReceiverSession.startMonitoring()
 
-    raw_input()
+    try:
+        raw_input()
+    except KeyboardInterrupt:
+        pass
 
     if args.DEXCOM_RECEIVER_LISTEN:
         logging.info("stopping listening to dexcom receiver")
