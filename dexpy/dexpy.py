@@ -132,10 +132,7 @@ def main():
         dexcomReceiverSession = DexcomReceiverSession(glucoseValueCallback)
         dexcomReceiverSession.startMonitoring()
 
-    try:
-        raw_input()
-    except KeyboardInterrupt:
-        pass
+    exitEvent.wait()
 
     if args.DEXCOM_RECEIVER_LISTEN:
         logging.info("stopping listening to dexcom receiver")
@@ -149,6 +146,13 @@ def main():
         mqttClient.loop_stop()
         mqttClient.disconnect()
 
-if __name__ == '__main__':
-    main()
+exitEvent = threading.Event()
 
+def signalHandler(signo, _frame):
+    exitEvent.set()
+
+if __name__ == '__main__':
+    import signal
+    for sig in ('TERM', 'HUP', 'INT'):
+        signal.signal(getattr(signal, 'SIG'+sig), signalHandler)
+    main()
