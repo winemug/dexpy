@@ -96,10 +96,10 @@ def main():
 
     logging.basicConfig(level=args.DEXPY_LOG_LEVEL)
 
-    if args.MQTT_ENABLED:
+    if args.MQTT_ENABLED and str(args.MQTT_ENABLED).lower() == "true":
         mqttClient = mqttc.Client(client_id=args.MQTT_CLIENT_ID, clean_session=True, protocol=MQTTv311, transport="tcp")
 
-        if args.MQTT_SSL:
+        if args.MQTT_SSL and str(args.MQTT_SSL).lower() == "true":
             mqttClient.tls_set(ca_certs=args.MQTT_SSL_CA, certfile=None,
                                         keyfile=None, cert_reqs=ssl.CERT_REQUIRED,
                                         tls_version=ssl.PROTOCOL_TLSv1_2, ciphers=None)
@@ -115,7 +115,7 @@ def main():
         mqttClient.loop_start()
 
     dexcomShareSession = None
-    if args.DEXCOM_SHARE_LISTEN or args.DEXCOM_SHARE_UPDATE:
+    if args.DEXCOM_SHARE_LISTEN and str(args.DEXCOM_SHARE_LISTEN).lower() == "true":
         logging.info("starting dexcom share session")
         dexcomShareSession = DexcomShareSession(args.DEXCOM_SHARE_SERVER_LOCATION, \
                                                 args.DEXCOM_SHARE_USERNAME, \
@@ -127,22 +127,22 @@ def main():
             dexcomShareSession.startMonitoring()
 
     dexcomReceiverSession = None
-    if args.DEXCOM_RECEIVER_LISTEN:
+    if args.DEXCOM_RECEIVER_LISTEN and str(args.DEXCOM_RECEIVER_LISTEN).lower() == "true":
         logging.info("connecting to usb receiver")
         dexcomReceiverSession = DexcomReceiverSession(glucoseValueCallback)
         dexcomReceiverSession.startMonitoring()
 
     exitEvent.wait()
 
-    if args.DEXCOM_RECEIVER_LISTEN:
+    if args.DEXCOM_RECEIVER_LISTEN and str(args.DEXCOM_RECEIVER_LISTEN).lower() == "true":
         logging.info("stopping listening to dexcom receiver")
         dexcomReceiverSession.stopMonitoring()
 
-    if args.DEXCOM_SHARE_LISTEN:
+    if args.DEXCOM_SHARE_LISTEN and str(args.DEXCOM_SHARE_LISTEN).lower() == "true":
         logging.info("stopping listening on dexcom share server")
         dexcomShareSession.stopMonitoring()
 
-    if args.MQTT_ENABLED:
+    if args.MQTT_ENABLED and str(args.MQTT_ENABLED).lower() == "true":
         mqttClient.loop_stop()
         mqttClient.disconnect()
 
