@@ -111,7 +111,7 @@ def main():
         mqttClient.on_publish = on_mqtt_message_publish
 
         logging.info("connecting to mqtt service")
-        mqttClient.connect(args.MQTT_SERVER, port=args.MQTT_PORT)
+        mqttClient.connect(args.MQTT_SERVER, port=args.MQTT_PORT, keepalive=60)
         mqttClient.loop_start()
 
     dexcomShareSession = None

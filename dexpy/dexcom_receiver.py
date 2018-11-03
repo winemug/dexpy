@@ -21,7 +21,7 @@ class DexcomReceiverSession():
         if not self.ensureUsbConnected():
             self.setTimer(15)
         elif self.readGlucoseValues():
-            self.setTimer(300)
+            self.setTimer(30)
         else:
             self.setTimer(10)
 
@@ -34,8 +34,8 @@ class DexcomReceiverSession():
                     return False
                 else:
                     self.device = Dexcom(port)
-                    self.systemTimeOffset = self.getUtcOffsetForSystemTime()
-                    return True
+            self.systemTimeOffset = self.getUtcOffsetForSystemTime()
+            return True
         except Exception as e:
             logging.warn("Error reading from usb device\n" + str(e))
             self.device = None
@@ -44,6 +44,7 @@ class DexcomReceiverSession():
 
     def setTimer(self, seconds):
         self.timer = threading.Timer(seconds, self.onTimer)
+        logging.debug("timer set to %d seconds" % seconds)
         self.timer.start()
 
     def stopMonitoring(self):
@@ -73,14 +74,6 @@ class DexcomReceiverSession():
                         else:
                             break
                             
-            for rec in self.device.ReadRecords('BACKFILLED_EGV'):
-                if not rec.display_only:
-                    gv = self.recordToGV(rec)
-                    if gv.st >= cutOffDate:
-                        self.callback(gv)
-                    else:
-                        break
-
             return newValueReceived
         except Exception as e:
             logging.warn("Error reading from usb device\n" + str(e))
