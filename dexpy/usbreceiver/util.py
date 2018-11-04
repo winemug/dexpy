@@ -42,7 +42,7 @@ if sys.platform == 'win32':
 
 
 def ReceiverTimeToTime(rtime):
-  return constants.BASE_TIME + datetime.timedelta(seconds=rtime)
+  return datetime.datetime.utcfromtimestamp(constants.DEXCOM_EPOCH + rtime)
 
 
 def linux_find_usbserial(vendor, product):
