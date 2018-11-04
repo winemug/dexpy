@@ -26,7 +26,7 @@ class GlucoseValue():
         return GlucoseValue(dt, wt, st, value, trend)
 
     def equals(self, other):
-        secondDifference = abs(self.st - other.st)
+        secondDifference = abs((self.st - other.st).total_seconds())
         if secondDifference >= 240:
             return False
         if self.trend != other.trend:
