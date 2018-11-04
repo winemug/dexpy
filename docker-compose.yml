@@ -4,17 +4,21 @@ services:
                 build: ./dexpy/
                 image: dexpy:latest
                 environment:
-                  - DEXCOM_SHARE_LISTEN=True
-                  - DEXCOM_SHARE_UPDATE=True
-                  - DEXCOM_SHARE_SERVER_LOCATION=eu
-                  - DEXCOM_SHARE_USERNAME=dexcomuser
-                  - DEXCOM_SHARE_PASSWORD=secretpassword
-                  - DEXCOM_RECEIVER_LISTEN=True
-                  - MQTT_ENABLED=True
-                  - MQTT_SERVER=mymqqtserver
-                  - MQTT_PORT=1883
-                  - MQTT_CLIENT_ID=dexpy
-                  - MQTT_TOPIC=cgm/dexcom
-                  - MQTT_SSL=True
-                  - MQTT_SSL_CA=./path.to.intermediate.certificate.crt
-                  - DEXPY_LOG_LEVEL=ERROR
+                        - DEXCOM_SHARE_SERVER=eu
+                        - DEXCOM_SHARE_USERNAME=dexcomusername
+                        - DEXCOM_SHARE_PASSWORD=dexcompassword
+                        - MQTT_SERVER=mqttservername
+                        - MQTT_PORT=1883
+                        - MQTT_SSL=
+                        - MQTT_CLIENTID=dexpy
+                        - MQTT_TOPIC=cgm/dexcom
+                        - INFLUXDB_SERVER=
+                        - INFLUXDB_PORT=
+                        - INFLUXDB_SSL=
+                        - INFLUXDB_USERNAME=
+                        - INFLUXDB_PASSWORD=
+                        - INFLUXDB_DATABASE=
+                        - NIGHTSCOUT_URL=
+                        - NIGHTSCOUT_SECRET=
+                        - NIGHTSCOUT_TOKEN=
+                        - LOG_LEVEL=ERROR
