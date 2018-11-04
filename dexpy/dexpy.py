@@ -66,7 +66,7 @@ def glucoseValueCallback(gv):
         else:
             gvDates = []
 
-    if args.MQTT_SERVER != "":
+    if args.MQTT_SERVER:
         ts = int((gv.st - datetime.utcfromtimestamp(0)).total_seconds())
         msg = "%d|%s|%s" % (ts, gv.trend, gv.value)
         x, mid = mqttClient.publish(args.MQTT_TOPIC, payload = msg, retain = shouldRetain, qos = 2)
@@ -74,8 +74,8 @@ def glucoseValueCallback(gv):
         mqttLocalQueue[mid] = gv
         logging.debug("Pending %d messages in local queue" % len(mqttLocalQueue))
 
-    if args.INFLUXDB_SERVER != "":
-        client = InfluxDBClient(args.INFLUXDB_SERVER, args.INFLUXDB_PORT, args.INFLUXDB_USER, args.INFLUXDB_PASSWORD, args.INFLUXDB_DATABASE, ssl = args.INFLUXDB_SSL is not None)
+    if args.INFLUXDB_SERVER:
+        client = InfluxDBClient(args.INFLUXDB_SERVER, args.INFLUXDB_PORT, args.INFLUXDB_USERNAME, args.INFLUXDB_PASSWORD, args.INFLUXDB_DATABASE, ssl = args.INFLUXDB_SSL is not None)
 
         point = {
                     "measurement": "measurements",
@@ -86,7 +86,7 @@ def glucoseValueCallback(gv):
         client.write_points([point])
         pass
     
-    if args.NIGHTSCOUT_URL != "":
+    if args.NIGHTSCOUT_URL:
         pass
 
 def main():
@@ -94,30 +94,30 @@ def main():
     global mqttClient
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("--DEXCOM-SHARE-SERVER", required=False, default="")
-    parser.add_argument("--DEXCOM-SHARE-USERNAME", required=False) 
-    parser.add_argument("--DEXCOM-SHARE-PASSWORD", required=False) 
-    parser.add_argument("--MQTT-SERVER", required=False, default="") 
-    parser.add_argument("--MQTT-PORT", required=False) 
-    parser.add_argument("--MQTT-SSL", required=False, default="") 
-    parser.add_argument("--MQTT-CLIENTID", required=False) 
-    parser.add_argument("--MQTT-TOPIC", required=False) 
-    parser.add_argument("--INFLUXDB-SERVER", required=False, default="")
-    parser.add_argument("--INFLUXDB-PORT", required=False)
-    parser.add_argument("--INFLUXDB-SSL", required=False)
-    parser.add_argument("--INFLUXDB-USERNAME", required=False)
-    parser.add_argument("--INFLUXDB-PASSWORD", required=False)
-    parser.add_argument("--INFLUXDB-DATABASE", required=False)
-    parser.add_argument("--NIGHTSCOUT-URL", required=False, default="")
-    parser.add_argument("--NIGHTSCOUT-SECRET", required=False)
-    parser.add_argument("--NIGHTSCOUT-TOKEN", required=False)
-    parser.add_argument("--LOG-LEVEL", required=False)
+    parser.add_argument("--DEXCOM-SHARE-SERVER", required=False, default=None, nargs="?")
+    parser.add_argument("--DEXCOM-SHARE-USERNAME", required=False, default="", nargs="?") 
+    parser.add_argument("--DEXCOM-SHARE-PASSWORD", required=False, default="", nargs="?") 
+    parser.add_argument("--MQTT-SERVER", required=False, default=None, nargs="?") 
+    parser.add_argument("--MQTT-PORT", required=False, default="1881", nargs="?") 
+    parser.add_argument("--MQTT-SSL", required=False, default="", nargs="?") 
+    parser.add_argument("--MQTT-CLIENTID", required=False, default="dexpy", nargs="?") 
+    parser.add_argument("--MQTT-TOPIC", required=False, default="cgm", nargs="?")
+    parser.add_argument("--INFLUXDB-SERVER", required=False, default=None, nargs="?")
+    parser.add_argument("--INFLUXDB-PORT", required=False, default="8086", nargs="?")
+    parser.add_argument("--INFLUXDB-SSL", required=False, default="", nargs="?")
+    parser.add_argument("--INFLUXDB-USERNAME", required=False, default="", nargs="?")
+    parser.add_argument("--INFLUXDB-PASSWORD", required=False, default="", nargs="?")
+    parser.add_argument("--INFLUXDB-DATABASE", required=False, default="", nargs="?")
+    parser.add_argument("--NIGHTSCOUT-URL", required=False, default=None, nargs="?")
+    parser.add_argument("--NIGHTSCOUT-SECRET", required=False, default="", nargs="?")
+    parser.add_argument("--NIGHTSCOUT-TOKEN", required=False, default="", nargs="?")
+    parser.add_argument("--LOG-LEVEL", required=False, default="INFO", nargs="?")
 
     args = parser.parse_args()
 
     logging.basicConfig(level=args.LOG_LEVEL)
 
-    if args.MQTT_SERVER != "":
+    if args.MQTT_SERVER:
         mqttClient = mqttc.Client(client_id=args.MQTT_CLIENTID, clean_session=True, protocol=MQTTv311, transport="tcp")
 
         if args.MQTT_SSL != "":
@@ -136,7 +136,7 @@ def main():
         mqttClient.loop_start()
 
     dexcomShareSession = None
-    if args.DEXCOM_SHARE_SERVER != "":
+    if args.DEXCOM_SHARE_SERVER:
         logging.info("starting dexcom share session")
         dexcomShareSession = DexcomShareSession(args.DEXCOM_SHARE_SERVER, \
                                                 args.DEXCOM_SHARE_USERNAME, \
