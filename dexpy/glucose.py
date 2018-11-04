@@ -17,16 +17,24 @@ class GlucoseValue():
         self.trackingId = None
 
     @staticmethod
-    def fromJson(jsonResponse):
-        dt = parseDateTime(jsonResponse["DT"])
-        wt = parseDateTime(jsonResponse["WT"])
-        st = parseDateTime(jsonResponse["ST"])
+    def fromJson(jsonResponse, timeoffset):
+        dt = parseDateTime(jsonResponse["DT"]) + timeoffset
+        wt = parseDateTime(jsonResponse["WT"]) + timeoffset
+        st = parseDateTime(jsonResponse["ST"]) + timeoffset
         value = float(jsonResponse["Value"])
         trend = int(jsonResponse["Trend"])
         return GlucoseValue(dt, wt, st, value, trend)
 
     def equals(self, other):
-        return self.st == other.st
+        secondDifference = abs(self.st - other.st)
+        if secondDifference >= 240:
+            return False
+        if self.trend != other.trend:
+            return False
+        if int(round(self.value)) != int(round(other.value)):
+            return False
+
+        return True
 
     def __str__(self):
         return "DT: %s WT: %s ST: %s Trend: %d Value: %f" % (self.dt, self.wt, self.st, self.trend, self.value)

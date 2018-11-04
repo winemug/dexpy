@@ -65,15 +65,23 @@ class DexcomReceiverSession():
                     self.callback(gv)
                     break
 
-            if newValueReceived:
-                for rec in records:
-                    if not rec.display_only:
-                        gv = self.recordToGV(rec)
-                        if gv.st >= cutOffDate:
-                            self.callback(gv)
-                        else:
-                            break
-                            
+            for rec in records:
+                if not rec.display_only:
+                    gv = self.recordToGV(rec)
+                    if gv.st >= cutOffDate:
+                        self.callback(gv)
+                    else:
+                        break
+
+            # for rec in self.device.iter_records('BACKFILLED_EGV'):
+            #     print(rec.dump(), rec.glucose)
+            #     if not rec.display_only:
+            #         gv = self.recordToGV(rec)
+            #         if gv.st >= cutOffDate:
+            #             self.callback(gv)
+            #         else:
+            #             break
+
             return newValueReceived
         except Exception as e:
             logging.warn("Error reading from usb device\n" + str(e))
@@ -81,13 +89,16 @@ class DexcomReceiverSession():
 
     def getUtcOffsetForSystemTime(self):
         deviceTime = self.device.ReadSystemTime()
-        hostTime = datetime.utcnow()
-        return hostTime - deviceTime
+        utcTime = datetime.utcnow()
+        diffSeconds = (utcTime - deviceTime).total_seconds()
+        #roundedDifference = int(round(diffSeconds / 1800)*1800)
+        return timedelta(seconds = diffSeconds)
 
     def recordToGV(self, record):
         st = record.system_time + self.systemTimeOffset
+        dt = record.display_time + self.systemTimeOffset
         direction = record.full_trend & constants.EGV_TREND_ARROW_MASK
-        return GlucoseValue(None, None, st, record.glucose, direction)
+        return GlucoseValue(dt, None, st, record.glucose, direction)
         
 
 

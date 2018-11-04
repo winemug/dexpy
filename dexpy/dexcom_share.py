@@ -99,14 +99,12 @@ class DexcomShareSession():
     def synchronizeTime(self):
         if self.serverTimeDelta is not None \
                 and self.lastTimeSynchronization is not None \
-                and (datetime.datetime.now() - self.lastTimeSynchronization).total_seconds() < 60*60*2:
+                and (datetime.datetime.utcnow() - self.lastTimeSynchronization).total_seconds() < 60*60*2:
             return
 
         logging.debug("requesting server time")
         url = "https://%s/ShareWebServices/Services/General/SystemUtcTime" % self.address
-        beforeReq = datetime.datetime.utcnow()
         response = requests.get(url)
-        afterReq = datetime.datetime.utcnow()
         if response.status_code != 200:
             logging.warning("Failed to get system time from dexcom server")
             self.setNextRequestTimer(60)
@@ -115,11 +113,12 @@ class DexcomShareSession():
         root = ET.fromstring(response.text)
         for child in root:
             if child.tag[-8:] == "DateTime":
-                requestTime = afterReq - beforeReq
-                localAverageTime = beforeReq + (requestTime / 2)
                 serverTime = datetime.datetime.strptime(child.text[:-4], "%Y-%m-%dT%H:%M:%S.%f")
-                self.serverTimeDelta = localAverageTime - serverTime
-                self.lastTimeSynchronization = datetime.datetime.now()
+                utcTime = datetime.datetime.utcnow()
+                diffSeconds = (utcTime - serverTime).total_seconds()
+                #roundedDifference = int(round(diffSeconds / 1800)*1800)
+                self.serverTimeDelta = datetime.timedelta(seconds = diffSeconds)
+                self.lastTimeSynchronization = datetime.datetime.utcnow()
                 logging.debug("Server date/time: %s Offset to local time: %s" % (serverTime, self.serverTimeDelta))
                 break
 
@@ -205,7 +204,7 @@ class DexcomShareSession():
         gvs = []
         if result.status_code == 200:
             for jsonResult in result.json():
-                gvs.append(GlucoseValue.fromJson(jsonResult))
+                gvs.append(GlucoseValue.fromJson(jsonResult, self.serverTimeDelta))
             return gvs
         else:
             return None
