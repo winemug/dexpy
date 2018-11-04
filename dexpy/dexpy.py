@@ -2,6 +2,8 @@
 
 import paho.mqtt.client as mqttc
 from paho.mqtt.client import MQTTv311
+from influxdb import InfluxDBClient
+
 import argparse
 import threading
 import ssl
@@ -64,7 +66,7 @@ def glucoseValueCallback(gv):
         else:
             gvDates = []
 
-    if args.MQTT_ENABLED:
+    if args.MQTT_SERVER != "":
         ts = int((gv.st - datetime.utcfromtimestamp(0)).total_seconds())
         msg = "%d|%s|%s" % (ts, gv.trend, gv.value)
         x, mid = mqttClient.publish(args.MQTT_TOPIC, payload = msg, retain = shouldRetain, qos = 2)
@@ -72,35 +74,54 @@ def glucoseValueCallback(gv):
         mqttLocalQueue[mid] = gv
         logging.debug("Pending %d messages in local queue" % len(mqttLocalQueue))
 
+    if args.INFLUXDB_SERVER != "":
+        client = InfluxDBClient(args.INFLUXDB_SERVER, args.INFLUXDB_PORT, args.INFLUXDB_USER, args.INFLUXDB_PASSWORD, args.INFLUXDB_DATABASE, ssl = args.INFLUXDB_SSL is not None)
+
+        point = {
+                    "measurement": "measurements",
+                    "tags": { "device": "dexcomg6", "source": "dexpy", "unit": "mg/dL" },
+                    "time": gv.st.strftime("%Y-%m-%dT%H:%M:%SZ"),
+                    "fields": { "cbg": gv.value, "direction": gv.trend }
+                }
+        client.write_points([point])
+        pass
+    
+    if args.NIGHTSCOUT_URL != "":
+        pass
+
 def main():
     global args
     global mqttClient
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("-dsl", "--DEXCOM-SHARE-LISTEN", required=False) 
-    parser.add_argument("-dsu", "--DEXCOM-SHARE-UPDATE", required=False) 
-    parser.add_argument("-dssl", "--DEXCOM-SHARE-SERVER-LOCATION", required=False) 
-    parser.add_argument("-dsun", "--DEXCOM-SHARE-USERNAME", required=False) 
-    parser.add_argument("-dsp", "--DEXCOM-SHARE-PASSWORD", required=False) 
-    parser.add_argument("-drl", "--DEXCOM-RECEIVER-LISTEN", required=False) 
-    parser.add_argument("-me", "--MQTT-ENABLED", required=False) 
-    parser.add_argument("-ms", "--MQTT-SERVER", required=False) 
-    parser.add_argument("-mp", "--MQTT-PORT", required=False) 
-    parser.add_argument("-mci", "--MQTT-CLIENT-ID", required=False) 
-    parser.add_argument("-mt", "--MQTT-TOPIC", required=False) 
-    parser.add_argument("-mssl", "--MQTT-SSL", required=False) 
-    parser.add_argument("-msslca", "--MQTT-SSL-CA", required=False)
-    parser.add_argument("-ll", "--DEXPY-LOG-LEVEL", required=False)
+    parser.add_argument("--DEXCOM-SHARE-SERVER", required=False, default="")
+    parser.add_argument("--DEXCOM-SHARE-USERNAME", required=False) 
+    parser.add_argument("--DEXCOM-SHARE-PASSWORD", required=False) 
+    parser.add_argument("--MQTT-SERVER", required=False, default="") 
+    parser.add_argument("--MQTT-PORT", required=False) 
+    parser.add_argument("--MQTT-SSL", required=False, default="") 
+    parser.add_argument("--MQTT-CLIENTID", required=False) 
+    parser.add_argument("--MQTT-TOPIC", required=False) 
+    parser.add_argument("--INFLUXDB-SERVER", required=False, default="")
+    parser.add_argument("--INFLUXDB-PORT", required=False)
+    parser.add_argument("--INFLUXDB-SSL", required=False)
+    parser.add_argument("--INFLUXDB-USERNAME", required=False)
+    parser.add_argument("--INFLUXDB-PASSWORD", required=False)
+    parser.add_argument("--INFLUXDB-DATABASE", required=False)
+    parser.add_argument("--NIGHTSCOUT-URL", required=False, default="")
+    parser.add_argument("--NIGHTSCOUT-SECRET", required=False)
+    parser.add_argument("--NIGHTSCOUT-TOKEN", required=False)
+    parser.add_argument("--LOG-LEVEL", required=False)
 
     args = parser.parse_args()
 
-    logging.basicConfig(level=args.DEXPY_LOG_LEVEL)
+    logging.basicConfig(level=args.LOG_LEVEL)
 
-    if args.MQTT_ENABLED and str(args.MQTT_ENABLED).lower() == "true":
-        mqttClient = mqttc.Client(client_id=args.MQTT_CLIENT_ID, clean_session=True, protocol=MQTTv311, transport="tcp")
+    if args.MQTT_SERVER != "":
+        mqttClient = mqttc.Client(client_id=args.MQTT_CLIENTID, clean_session=True, protocol=MQTTv311, transport="tcp")
 
-        if args.MQTT_SSL and str(args.MQTT_SSL).lower() == "true":
-            mqttClient.tls_set(ca_certs=args.MQTT_SSL_CA, certfile=None,
+        if args.MQTT_SSL != "":
+            mqttClient.tls_set(certfile=None,
                                         keyfile=None, cert_reqs=ssl.CERT_REQUIRED,
                                         tls_version=ssl.PROTOCOL_TLSv1_2, ciphers=None)
             mqttClient.tls_insecure_set(True)
@@ -115,39 +136,40 @@ def main():
         mqttClient.loop_start()
 
     dexcomShareSession = None
-    if args.DEXCOM_SHARE_LISTEN and str(args.DEXCOM_SHARE_LISTEN).lower() == "true":
+    if args.DEXCOM_SHARE_SERVER != "":
         logging.info("starting dexcom share session")
-        dexcomShareSession = DexcomShareSession(args.DEXCOM_SHARE_SERVER_LOCATION, \
+        dexcomShareSession = DexcomShareSession(args.DEXCOM_SHARE_SERVER, \
                                                 args.DEXCOM_SHARE_USERNAME, \
                                                 args.DEXCOM_SHARE_PASSWORD, \
                                                 glucoseValueCallback)
         
-        if args.DEXCOM_SHARE_LISTEN:
-            logging.info("starting monitoring the share server")
-            dexcomShareSession.startMonitoring()
+        logging.info("starting monitoring the share server")
+        dexcomShareSession.startMonitoring()
 
-    dexcomReceiverSession = None
-    if args.DEXCOM_RECEIVER_LISTEN and str(args.DEXCOM_RECEIVER_LISTEN).lower() == "true":
-        logging.info("connecting to usb receiver")
-        dexcomReceiverSession = DexcomReceiverSession(glucoseValueCallback)
-        dexcomReceiverSession.startMonitoring()
+    logging.info("looking for and connecting to usb receiver")
+    dexcomReceiverSession = DexcomReceiverSession(glucoseValueCallback)
+    dexcomReceiverSession.startMonitoring()
 
-    exitEvent.wait()
 
-    if args.DEXCOM_RECEIVER_LISTEN and str(args.DEXCOM_RECEIVER_LISTEN).lower() == "true":
-        logging.info("stopping listening to dexcom receiver")
-        dexcomReceiverSession.stopMonitoring()
+    try:
+        while not exitEvent.wait(timeout = 1000):
+            pass
+    except KeyboardInterrupt:
+        pass
 
-    if args.DEXCOM_SHARE_LISTEN and str(args.DEXCOM_SHARE_LISTEN).lower() == "true":
+    logging.info("stopping listening to dexcom receiver")
+    dexcomReceiverSession.stopMonitoring()
+
+    if args.DEXCOM_SHARE_SERVER:
         logging.info("stopping listening on dexcom share server")
         dexcomShareSession.stopMonitoring()
 
-    if args.MQTT_ENABLED and str(args.MQTT_ENABLED).lower() == "true":
+    if args.MQTT_SERVER:
         mqttClient.loop_stop()
         mqttClient.disconnect()
 
-exitEvent = threading.Event()
 
+exitEvent = threading.Event()
 def signalHandler(signo, _frame):
     exitEvent.set()
 
