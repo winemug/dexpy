@@ -529,3 +529,6 @@ class G5EGVRecord (EGVRecord):
   def full_trend(self):
     return self.data[6]
 
+  @property
+  def meter_time(self):
+    return util.ReceiverTimeToTime(self.data[3])
