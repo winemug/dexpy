@@ -65,22 +65,22 @@ class DexcomReceiverSession():
                     self.callback(gv)
                     break
 
-            for rec in records:
-                if not rec.display_only:
-                    gv = self.recordToGV(rec)
-                    if gv.st >= cutOffDate:
-                        self.callback(gv)
-                    else:
-                        break
+            if newValueReceived:
+                for rec in records:
+                    if not rec.display_only:
+                        gv = self.recordToGV(rec)
+                        if gv.st >= cutOffDate:
+                            self.callback(gv)
+                        else:
+                            break
 
-            # for rec in self.device.iter_records('BACKFILLED_EGV'):
-            #     print(rec.dump(), rec.glucose)
-            #     if not rec.display_only:
-            #         gv = self.recordToGV(rec)
-            #         if gv.st >= cutOffDate:
-            #             self.callback(gv)
-            #         else:
-            #             break
+                for rec in self.device.iter_records('BACKFILLED_EGV'):
+                    if not rec.display_only:
+                        gv = self.recordToGV(rec)
+                        if gv.st >= cutOffDate:
+                            self.callback(gv)
+                        else:
+                            break
 
             return newValueReceived
         except Exception as e:
@@ -95,10 +95,9 @@ class DexcomReceiverSession():
         return timedelta(seconds = diffSeconds)
 
     def recordToGV(self, record):
-        st = record.system_time + self.systemTimeOffset
-        dt = record.display_time + self.systemTimeOffset
+        st = record.meter_time + self.systemTimeOffset
         direction = record.full_trend & constants.EGV_TREND_ARROW_MASK
-        return GlucoseValue(dt, None, st, record.glucose, direction)
+        return GlucoseValue(None, None, st, record.glucose, direction)
         
 
 
