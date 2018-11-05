@@ -45,8 +45,6 @@ class DexcomReceiverSession():
             return False
 
     def setTimer(self, seconds):
-        if self.timer is not None:
-            self.timer.cancel()
         self.timer = threading.Timer(seconds, self.onTimer)
         logging.debug("timer set to %d seconds" % seconds)
         self.timer.start()

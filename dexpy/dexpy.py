@@ -20,6 +20,7 @@ exitEvent = threading.Event()
 finishUpEvent = threading.Event()
 messagePublishedEvent = threading.Event()
 mqttClient = None
+influxClient = None
 
 callbackQueue = Queue()
 mqttLocalTracking = {}
@@ -69,6 +70,7 @@ def queueHandlerLoop():
        
 def processGlucoseValue(gv):
     global sortedGvs
+    global influxClient
 
     logging.debug("Processing glucose value: %s" % gv)
     shouldRetain = False
@@ -103,16 +105,14 @@ def processGlucoseValue(gv):
         mqttLocalTracking[mid] = gv
 
     if args.INFLUXDB_SERVER:
-        client = InfluxDBClient(args.INFLUXDB_SERVER, args.INFLUXDB_PORT, args.INFLUXDB_USERNAME, args.INFLUXDB_PASSWORD, args.INFLUXDB_DATABASE, ssl = args.INFLUXDB_SSL)
-
         point = {
                     "measurement": "measurements",
                     "tags": { "device": "dexcomg6", "source": "dexpy", "unit": "mg/dL" },
                     "time": gv.st.strftime("%Y-%m-%dT%H:%M:%SZ"),
                     "fields": { "cbg": float(gv.value), "direction": int(gv.trend) }
                 }
-        client.write_points([point])
-        pass
+
+        influxClient.write_points([point])
     
     if args.NIGHTSCOUT_URL:
         pass
@@ -122,6 +122,7 @@ def main():
     global mqttClient
     global finishUpEvent
     global mqttLocalTracking
+    global influxClient
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--DEXCOM-SHARE-SERVER", required=False, default=None, nargs="?")
@@ -146,6 +147,10 @@ def main():
     args = parser.parse_args()
 
     logging.basicConfig(level=args.LOG_LEVEL)
+
+    if args.INFLUXDB_SERVER:
+        influxClient = InfluxDBClient(args.INFLUXDB_SERVER, args.INFLUXDB_PORT, args.INFLUXDB_USERNAME, args.INFLUXDB_PASSWORD, args.INFLUXDB_DATABASE, ssl = args.INFLUXDB_SSL)
+
 
     if args.MQTT_SERVER:
         mqttClient = mqttc.Client(client_id=args.MQTT_CLIENTID, clean_session=True, protocol=MQTTv311, transport="tcp")
@@ -223,6 +228,10 @@ def main():
         logging.info("Disconnecting from mqtt")
         mqttClient.loop_stop()
         mqttClient.disconnect()
+
+    if args.INFLUXDB_SERVER:
+        influxClient.close()
+
 
 def signalHandler(signo, _frame):
     exitEvent.set()
