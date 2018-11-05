@@ -12,18 +12,20 @@ class DexcomReceiverSession():
         self.callback = callback
         self.device = None
         self.timer = None
+        self.lock = threading.RLock()
 
     def startMonitoring(self):
         self.lastGVReceived = None
         self.onTimer()
 
     def onTimer(self):
-        if not self.ensureUsbConnected():
-            self.setTimer(15)
-        elif self.readGlucoseValues():
-            self.setTimer(30)
-        else:
-            self.setTimer(10)
+        with self.lock:
+            if not self.ensureUsbConnected():
+                self.setTimer(15)
+            elif self.readGlucoseValues():
+                self.setTimer(30)
+            else:
+                self.setTimer(10)
 
     def ensureUsbConnected(self):
         try:
@@ -43,12 +45,15 @@ class DexcomReceiverSession():
             return False
 
     def setTimer(self, seconds):
+        if self.timer is not None:
+            self.timer.cancel()
         self.timer = threading.Timer(seconds, self.onTimer)
         logging.debug("timer set to %d seconds" % seconds)
         self.timer.start()
 
     def stopMonitoring(self):
-        self.timer.cancel()
+        with self.lock:
+            self.timer.cancel()
 
     def readGlucoseValues(self):
         try:

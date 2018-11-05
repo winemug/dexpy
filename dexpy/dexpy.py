@@ -3,7 +3,7 @@
 import paho.mqtt.client as mqttc
 from paho.mqtt.client import MQTTv311
 from influxdb import InfluxDBClient
-
+from Queue import Queue, Empty
 import argparse
 import threading
 import ssl
@@ -14,65 +14,93 @@ from dexcom_receiver import DexcomReceiverSession
 import logging
 import bisect
 import sys
+from glucose import GlucoseValue
 
-gvDates = []
+exitEvent = threading.Event()
+finishUpEvent = threading.Event()
+messagePublishedEvent = threading.Event()
 mqttClient = None
-mqttLocalQueue = {}
+
+callbackQueue = Queue()
+mqttLocalTracking = {}
+sortedGvs = []
 
 def on_mqtt_connect(client, userdata, flags, rc):
     logging.info("Connected to mqtt server with result code "+str(rc))
-    logging.debug("Pending %d messages in local queue" % len(mqttLocalQueue))
+    logging.debug("Pending %d messages in local queue" % len(mqttLocalTracking))
 
 def on_mqtt_disconnect(client, userdata, rc):
     logging.info("Disconnected from mqtt with result code "+str(rc))
-    logging.debug("Pending %d messages in local queue" % len(mqttLocalQueue))
+    logging.debug("Pending %d messages in local queue" % len(mqttLocalTracking))
 
 def on_mqtt_message_receive(client, userdata, msg):
     logging.info("mqtt message received: " + msg)
 
 def on_mqtt_message_publish(client, userdata, mid):
     logging.info("mqtt message published: " + str(mid))
-    if mqttLocalQueue.has_key(mid):
-        mqttLocalQueue.pop(mid)
+    if mqttLocalTracking.has_key(mid):
+        mqttLocalTracking.pop(mid)
     else:
         logging.debug("unknown message id: " + str(mid))
-    logging.debug("Pending %d messages in local queue" % len(mqttLocalQueue))
+    logging.debug("Pending %d messages in local queue" % len(mqttLocalTracking))
 
 def glucoseValueCallback(gv):
+    global callbackQueue
+    callbackQueue.put(gv)
+
+def queueHandlerLoop():
     global mqttClient
-    global gvDates
+    global callbackQueue
+    global finishUpEvent
 
-    logging.debug("Received glucose value: %s" % gv)
+    while not finishUpEvent.wait(timeout=0.050):
+        try:
+            gv = callbackQueue.get(block = True, timeout=1)
+            processGlucoseValue(gv)
+        except Empty:
+            pass
 
+    while True:
+        try:
+            gv = callbackQueue.get(block = False)
+            processGlucoseValue(gv)
+        except Empty:
+            break
+       
+def processGlucoseValue(gv):
+    global sortedGvs
+
+    logging.debug("Processing glucose value: %s" % gv)
     shouldRetain = False
-    i = bisect.bisect_right(gvDates, gv.st)
-    if i > 0 and gvDates[i-1] == gv.st:
+
+    i = bisect.bisect_right(sortedGvs, gv)
+    if i > 0 and sortedGvs[i-1] == gv:
         logging.debug("Received value is a duplicate, skipping.")
         return
-    elif i == len(gvDates):
-        gvDates.append(gv.st)
+    elif i == len(sortedGvs):
+        sortedGvs.append(gv)
         shouldRetain = True
     else:
-        newList = gvDates[0:i]
-        newList.append(gv.st)
-        newList.extend(gvDates[i:])
-        gvDates = newList
+        newList = sortedGvs[0:i]
+        newList.append(gv)
+        newList.extend(sortedGvs[i:])
+        sortedGvs = newList
 
-    if len(gvDates) > 100:
+    if len(sortedGvs) > 200:
         cutOffDate = datetime.utcnow() - timedelta(hours = 3)
-        cutOffPosition = bisect.bisect_left(gvDates, cutOffDate)
+        cutOffGv = GlucoseValue(None, None, cutOffDate, 0, 0)
+        cutOffPosition = bisect.bisect_left(sortedGvs, cutOffGv)
         if cutOffPosition:
-            gvDates = gvDates[cutOffPosition:]
+            sortedGvs = sortedGvs[cutOffPosition:]
         else:
-            gvDates = []
+            sortedGvs = []
 
     if args.MQTT_SERVER:
         ts = int((gv.st - datetime.utcfromtimestamp(0)).total_seconds())
         msg = "%d|%s|%s" % (ts, gv.trend, gv.value)
         x, mid = mqttClient.publish(args.MQTT_TOPIC, payload = msg, retain = shouldRetain, qos = 2)
         logging.debug("publish to mqtt requested with message id: " + str(mid))
-        mqttLocalQueue[mid] = gv
-        logging.debug("Pending %d messages in local queue" % len(mqttLocalQueue))
+        mqttLocalTracking[mid] = gv
 
     if args.INFLUXDB_SERVER:
         client = InfluxDBClient(args.INFLUXDB_SERVER, args.INFLUXDB_PORT, args.INFLUXDB_USERNAME, args.INFLUXDB_PASSWORD, args.INFLUXDB_DATABASE, ssl = args.INFLUXDB_SSL)
@@ -92,6 +120,8 @@ def glucoseValueCallback(gv):
 def main():
     global args
     global mqttClient
+    global finishUpEvent
+    global mqttLocalTracking
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--DEXCOM-SHARE-SERVER", required=False, default=None, nargs="?")
@@ -132,7 +162,9 @@ def main():
         mqttClient.on_publish = on_mqtt_message_publish
 
         logging.info("connecting to mqtt service")
-        mqttClient.connect(args.MQTT_SERVER, port=args.MQTT_PORT, keepalive=60)
+        mqttClient.reconnect_delay_set(min_delay=15, max_delay=120)
+        mqttClient.connect_async(args.MQTT_SERVER, port=args.MQTT_PORT, keepalive=60)
+        mqttClient.retry_first_connection=True
         mqttClient.loop_start()
 
     dexcomShareSession = None
@@ -150,12 +182,16 @@ def main():
     dexcomReceiverSession = DexcomReceiverSession(glucoseValueCallback)
     dexcomReceiverSession.startMonitoring()
 
+    queueHandler = threading.Thread(target = queueHandlerLoop)
+    queueHandler.start()
 
     try:
         while not exitEvent.wait(timeout = 1000):
             pass
     except KeyboardInterrupt:
         pass
+
+    exitEvent.clear()
 
     logging.info("stopping listening to dexcom receiver")
     dexcomReceiverSession.stopMonitoring()
@@ -164,12 +200,30 @@ def main():
         logging.info("stopping listening on dexcom share server")
         dexcomShareSession.stopMonitoring()
 
+    logging.info("Finishing up queued work")
+    finishUpEvent.set()
+    queueHandler.join()
+
     if args.MQTT_SERVER:
+        pendingMessages = len(mqttLocalTracking)
+        if pendingMessages > 0:
+            logging.info("Pending %d messages in local queue, waiting for all to be published" % pendingMessages)
+            logging.info("Press CTRL + C to abort")
+            try:
+                mqttClient.loop_stop()
+                while pendingMessages > 0:
+                    mqttClient.loop(timeout=0.5)
+                    pendingMessages = len(mqttLocalTracking)
+                    if exitEvent.wait(timeout=0.1):
+                        logging.info("Aborted")
+                        break
+            except KeyboardInterrupt:
+                logging.info("Aborted")
+                pass
+        logging.info("Disconnecting from mqtt")
         mqttClient.loop_stop()
         mqttClient.disconnect()
 
-
-exitEvent = threading.Event()
 def signalHandler(signo, _frame):
     exitEvent.set()
 

@@ -25,6 +25,14 @@ class GlucoseValue():
         trend = int(jsonResponse["Trend"])
         return GlucoseValue(dt, wt, st, value, trend)
 
+    def __cmp__(self, other):
+        secondDifference = (self.st - other.st).total_seconds()
+        if abs(secondDifference) < 240 and \
+            self.trend == other.trend and \
+            int(round(self.value)) != int(round(other.value)):
+            return 0
+        return secondDifference if secondDifference != 0 else 1
+
     def equals(self, other):
         secondDifference = abs((self.st - other.st).total_seconds())
         if secondDifference >= 240:

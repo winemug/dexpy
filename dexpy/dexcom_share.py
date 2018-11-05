@@ -24,6 +24,7 @@ class DexcomShareSession():
         self.sessionId = None
         self.requestTimer = None
         self.callback = callback
+        self.lock = threading.RLock()
 
     def startMonitoring(self):
         if self.requestTimer is not None:
@@ -44,8 +45,10 @@ class DexcomShareSession():
         self.setNextRequestTimer()
 
     def stopMonitoring(self):
-        if self.requestTimer is not None:
-            self.requestTimer.cancel()
+        with self.lock:
+            if self.requestTimer is not None:
+                self.requestTimer.cancel()
+                self.requestTimer = None
 
     def setNextRequestTimer(self, seconds = 0.1):
         if self.requestTimer is not None:
@@ -68,33 +71,34 @@ class DexcomShareSession():
         return waitTimes[lwtIndex]
 
     def onTimer(self):
-        if not self.loggedIn:
-            self.login()
-        if not self.loggedIn:
-            self.setNextRequestTimer(20)
-            return
+        with self.lock:
+            if not self.loggedIn:
+                self.login()
+            if not self.loggedIn:
+                self.setNextRequestTimer(20)
+                return
 
-        self.synchronizeTime()
-        logging.debug("Requesting glucose value")
-        gv = self.getLastGlucoseValue()
-        if gv is None:
-            logging.warning("Received no glucose value")
-            self.setNextRequestTimer(self.getWaitTimeForValidReading())
-        else:
-            if self.lastGlucose is not None and self.lastGlucose.equals(gv):
-                logging.debug("received the same glucose value as last time")
+            self.synchronizeTime()
+            logging.debug("Requesting glucose value")
+            gv = self.getLastGlucoseValue()
+            if gv is None:
+                logging.warning("Received no glucose value")
                 self.setNextRequestTimer(self.getWaitTimeForValidReading())
             else:
-                self.lastGlucose = gv
-                self.callback(gv)
+                if self.lastGlucose is not None and self.lastGlucose.equals(gv):
+                    logging.debug("received the same glucose value as last time")
+                    self.setNextRequestTimer(self.getWaitTimeForValidReading())
+                else:
+                    self.lastGlucose = gv
+                    self.callback(gv)
 
-                self.backFillIfNeeded()
+                    self.backFillIfNeeded()
 
-                glucoseAge = datetime.datetime.utcnow() - gv.st + self.serverTimeDelta
-                logging.info("received new glucose value, with an age of %s, %s" % (glucoseAge, gv))
-                waitTime = 310 - glucoseAge.total_seconds()
-                self.lastWaitTimeForValidReading = None
-                self.setNextRequestTimer(max(waitTime, 5))
+                    glucoseAge = datetime.datetime.utcnow() - gv.st + self.serverTimeDelta
+                    logging.info("received new glucose value, with an age of %s, %s" % (glucoseAge, gv))
+                    waitTime = 310 - glucoseAge.total_seconds()
+                    self.lastWaitTimeForValidReading = None
+                    self.setNextRequestTimer(max(waitTime, 5))
 
     def synchronizeTime(self):
         if self.serverTimeDelta is not None \
