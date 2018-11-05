@@ -1,6 +1,7 @@
 import datetime
 import json
 import re
+from usbreceiver import constants
 
 def parseDateTime(val):
     res = re.search("Date\\((\\d*)", val)
@@ -14,7 +15,11 @@ class GlucoseValue():
         self.st = st
         self.value = value
         self.trend = trend
+        self.trendString = self.trendAsString(trend)
         self.trackingId = None
+
+    def trendAsString(self, trend):
+        return constants.TREND_ARROW_VALUES[trend]
 
     @staticmethod
     def fromJson(jsonResponse, timeoffset):
@@ -45,4 +50,4 @@ class GlucoseValue():
         return True
 
     def __str__(self):
-        return "DT: %s WT: %s ST: %s Trend: %d Value: %f" % (self.dt, self.wt, self.st, self.trend, self.value)
+        return "DT: %s WT: %s ST: %s Trend: %s Value: %f" % (self.dt, self.wt, self.st, self.trendString, self.value)

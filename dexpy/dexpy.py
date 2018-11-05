@@ -1,5 +1,6 @@
 #!/usr/bin/python2
 
+import json
 import paho.mqtt.client as mqttc
 from paho.mqtt.client import MQTTv311
 from influxdb import InfluxDBClient
@@ -15,6 +16,7 @@ import logging
 import bisect
 import sys
 from glucose import GlucoseValue
+import requests
 
 exitEvent = threading.Event()
 finishUpEvent = threading.Event()
@@ -96,9 +98,8 @@ def processGlucoseValue(gv):
             sortedGvs = sortedGvs[cutOffPosition:]
         else:
             sortedGvs = []
-
+    ts = int((gv.st - datetime.utcfromtimestamp(0)).total_seconds())
     if args.MQTT_SERVER:
-        ts = int((gv.st - datetime.utcfromtimestamp(0)).total_seconds())
         msg = "%d|%s|%s" % (ts, gv.trend, gv.value)
         x, mid = mqttClient.publish(args.MQTT_TOPIC, payload = msg, retain = shouldRetain, qos = 2)
         logging.debug("publish to mqtt requested with message id: " + str(mid))
@@ -109,13 +110,23 @@ def processGlucoseValue(gv):
                     "measurement": "measurements",
                     "tags": { "device": "dexcomg6", "source": "dexpy", "unit": "mg/dL" },
                     "time": gv.st.strftime("%Y-%m-%dT%H:%M:%SZ"),
-                    "fields": { "cbg": float(gv.value), "direction": int(gv.trend) }
+                    "fields": { "cbg": float(gv.value), "direction": int(gv.trend)}
                 }
 
         influxClient.write_points([point])
     
     if args.NIGHTSCOUT_URL:
-        pass
+        apiUrl = args.NIGHTSCOUT_URL
+        if apiUrl[-1] != "/":
+            apiUrl += "/"
+        apiUrl += "api/v1/entries/"
+        payload = { "sgv":gv.value, "type":"sgv", "direction":gv.trendString, "date":ts*1000 }
+        headers = {"Content-Type":"application/json"}
+        if args.NIGHTSCOUT_SECRET:
+            headers["api-secret"] = args.NIGHTSCOUT_SECRET
+        if args.NIGHTSCOUT_TOKEN:
+            apiUrl += "?token=" + args.NIGHTSCOUT_TOKEN
+        requests.post(apiUrl, headers = headers, data = json.dumps(payload))
 
 def main():
     global args
@@ -140,8 +151,8 @@ def main():
     parser.add_argument("--INFLUXDB-PASSWORD", required=False, default="", nargs="?")
     parser.add_argument("--INFLUXDB-DATABASE", required=False, default="", nargs="?")
     parser.add_argument("--NIGHTSCOUT-URL", required=False, default=None, nargs="?")
-    parser.add_argument("--NIGHTSCOUT-SECRET", required=False, default="", nargs="?")
-    parser.add_argument("--NIGHTSCOUT-TOKEN", required=False, default="", nargs="?")
+    parser.add_argument("--NIGHTSCOUT-SECRET", required=False, default=None, nargs="?")
+    parser.add_argument("--NIGHTSCOUT-TOKEN", required=False, default=None, nargs="?")
     parser.add_argument("--LOG-LEVEL", required=False, default="INFO", nargs="?")
 
     args = parser.parse_args()
