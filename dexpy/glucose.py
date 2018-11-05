@@ -1,7 +1,8 @@
 import datetime
 import json
 import re
-from usbreceiver import constants
+
+NightscoutTrendStrings = {'None', 'DoubleUp', 'SingleUp', 'FortyFiveUp', 'Flat', 'FortyFiveDown', 'SingleDown', 'DoubleDown', 'NotComputable', 'OutOfRange'}
 
 def parseDateTime(val):
     res = re.search("Date\\((\\d*)", val)
@@ -19,7 +20,7 @@ class GlucoseValue():
         self.trackingId = None
 
     def trendAsString(self, trend):
-        return constants.TREND_ARROW_VALUES[trend]
+        return NightscoutTrendStrings[trend]
 
     @staticmethod
     def fromJson(jsonResponse, timeoffset):
