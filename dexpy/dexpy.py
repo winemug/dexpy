@@ -75,13 +75,13 @@ def glucoseValueCallback(gv):
         logging.debug("Pending %d messages in local queue" % len(mqttLocalQueue))
 
     if args.INFLUXDB_SERVER:
-        client = InfluxDBClient(args.INFLUXDB_SERVER, args.INFLUXDB_PORT, args.INFLUXDB_USERNAME, args.INFLUXDB_PASSWORD, args.INFLUXDB_DATABASE, ssl = args.INFLUXDB_SSL is not None)
+        client = InfluxDBClient(args.INFLUXDB_SERVER, args.INFLUXDB_PORT, args.INFLUXDB_USERNAME, args.INFLUXDB_PASSWORD, args.INFLUXDB_DATABASE, ssl = args.INFLUXDB_SSL)
 
         point = {
                     "measurement": "measurements",
                     "tags": { "device": "dexcomg6", "source": "dexpy", "unit": "mg/dL" },
                     "time": gv.st.strftime("%Y-%m-%dT%H:%M:%SZ"),
-                    "fields": { "cbg": gv.value, "direction": gv.trend }
+                    "fields": { "cbg": float(gv.value), "direction": int(gv.trend) }
                 }
         client.write_points([point])
         pass
