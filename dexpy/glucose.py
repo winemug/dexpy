@@ -2,7 +2,7 @@ import datetime
 import json
 import re
 
-NightscoutTrendStrings = {'None', 'DoubleUp', 'SingleUp', 'FortyFiveUp', 'Flat', 'FortyFiveDown', 'SingleDown', 'DoubleDown', 'NotComputable', 'OutOfRange'}
+NightscoutTrendStrings = ['None', 'DoubleUp', 'SingleUp', 'FortyFiveUp', 'Flat', 'FortyFiveDown', 'SingleDown', 'DoubleDown', 'NotComputable', 'OutOfRange']
 
 def parseDateTime(val):
     res = re.search("Date\\((\\d*)", val)
