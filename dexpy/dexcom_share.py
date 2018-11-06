@@ -158,7 +158,7 @@ class DexcomShareSession():
             gvToBackFill = gvs[i]
 
             while gvCurrent is not None and gvCurrent < gvToBackFill.st:
-                newList.append(gvCurrent.st)
+                newList.append(gvCurrent)
                 gvCurrentIndex += 1
                 if gvCurrentIndex > len(self.gvList):
                     gvCurrent = None
