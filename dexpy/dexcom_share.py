@@ -4,7 +4,6 @@ import datetime
 import threading
 import requests
 import json
-import re
 import xml.etree.ElementTree as ET
 from glucose import GlucoseValue
 
@@ -155,7 +154,7 @@ class DexcomShareSession():
 
         if gvs is None:
             return
-            
+
         self.initialBackfillExecuted = True
         logging.debug("Received %d glucose values from history" % len(gvs))
 

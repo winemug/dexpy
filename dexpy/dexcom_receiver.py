@@ -5,7 +5,6 @@ from datetime import datetime, timedelta
 from glucose import GlucoseValue
 import threading
 import logging
-import bisect
 
 class DexcomReceiverSession():
     def __init__(self, callback):
