@@ -13,6 +13,7 @@ class DexcomReceiverSession():
         self.device = None
         self.timer = None
         self.lock = threading.RLock()
+        self.initialBackfillExecuted = False
 
     def startMonitoring(self):
         self.lastGVReceived = None
@@ -72,7 +73,7 @@ class DexcomReceiverSession():
                 for rec in records:
                     if not rec.display_only:
                         gv = self.recordToGV(rec)
-                        if gv.st >= cutOffDate:
+                        if not self.initialBackfillExecuted or gv.st >= cutOffDate:
                             self.callback(gv)
                         else:
                             break
@@ -80,11 +81,12 @@ class DexcomReceiverSession():
                 for rec in self.device.iter_records('BACKFILLED_EGV'):
                     if not rec.display_only:
                         gv = self.recordToGV(rec)
-                        if gv.st >= cutOffDate:
+                        if not self.initialBackfillExecuted or gv.st >= cutOffDate:
                             self.callback(gv)
                         else:
                             break
 
+            self.initialBackfillExecuted = True
             return newValueReceived
         except Exception as e:
             logging.warn("Error reading from usb device\n" + str(e))

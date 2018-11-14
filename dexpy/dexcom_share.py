@@ -25,6 +25,7 @@ class DexcomShareSession():
         self.requestTimer = None
         self.callback = callback
         self.lock = threading.RLock()
+        self.initialBackfillExecuted = False
 
     def startMonitoring(self):
         if self.requestTimer is not None:
@@ -79,6 +80,7 @@ class DexcomShareSession():
                 return
 
             self.synchronizeTime()
+
             logging.debug("Requesting glucose value")
             gv = self.getLastGlucoseValue()
             if gv is None:
@@ -107,9 +109,14 @@ class DexcomShareSession():
             return
 
         logging.debug("requesting server time")
-        url = "https://%s/ShareWebServices/Services/General/SystemUtcTime" % self.address
-        response = requests.get(url)
-        if response.status_code != 200:
+        failed = False
+        try:
+            url = "https://%s/ShareWebServices/Services/General/SystemUtcTime" % self.address
+            response = requests.get(url)
+        except:
+            failed = True
+
+        if failed or response.status_code != 200:
             logging.warning("Failed to get system time from dexcom server")
             self.setNextRequestTimer(60)
             return
@@ -136,15 +143,20 @@ class DexcomShareSession():
         else:
             self.gvList = []
 
-        if len(self.gvList) >= 36:
+        if self.initialBackfillExecuted and len(self.gvList) >= 36:
             return
 
-        logging.info("Missing measurements within the last 3 hours, attempting to backfill..")
-
-        gvs = self.getMultipleGlucoseValues(180, 36)
+        if self.initialBackfillExecuted:
+            logging.info("Missing measurements within the last 3 hours, attempting to backfill..")
+            gvs = self.getMultipleGlucoseValues(180, 40)
+        else:
+            logging.info("Executing initial backfill with the last 24 hours of data..")
+            gvs = self.getMultipleGlucoseValues(1440, 300)
 
         if gvs is None:
             return
+            
+        self.initialBackfillExecuted = True
         logging.debug("Received %d glucose values from history" % len(gvs))
 
         newList = []
@@ -187,9 +199,13 @@ class DexcomShareSession():
                  "applicationId":"d8665ade-9673-4e27-9ff6-92db4ce13d13" }
 
         logging.debug("Attempting to login")
-        result = requests.post(url, data = json.dumps(payload) , headers = headers)
-        if result.status_code != 200:
-            logging.error("Login failed, Http result code %d text: %s" % (result.status_code, result.text))
+        failed = False
+        try:
+            result = requests.post(url, data = json.dumps(payload) , headers = headers)
+        except:
+            failed = True
+        if failed or result.status_code != 200:
+            logging.error("Login failed")
             self.loggedIn = False
         else:
             self.sessionId = result.text[1:-1]
@@ -203,10 +219,13 @@ class DexcomShareSession():
         url += "?sessionId=%s&minutes=%d&maxCount=%d" % (self.sessionId, minutes, maxCount)
         headers = { "Accept":"application/json",
                     "User-Agent":"Dexcom Share/3.0.2.11 CFNetwork/711.2.23 Darwin/14.0.0" }
- 
-        result = requests.post(url, headers = headers)
+        failed = False
+        try:
+            result = requests.post(url, headers = headers)
+        except:
+            failed = True
         gvs = []
-        if result.status_code == 200:
+        if not failed and result.status_code == 200:
             for jsonResult in result.json():
                 gvs.append(GlucoseValue.fromJson(jsonResult, self.serverTimeDelta))
             return gvs
