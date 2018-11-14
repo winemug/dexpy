@@ -8,8 +8,7 @@ from Queue import Queue, Empty
 import argparse
 import threading
 import ssl
-from datetime import datetime, time, timedelta
-import time
+from datetime import datetime, timedelta
 from dexcom_share import DexcomShareSession
 from dexcom_receiver import DexcomReceiverSession
 import logging
