@@ -13,7 +13,6 @@ from dexcom_share import DexcomShareSession
 from dexcom_receiver import DexcomReceiverSession
 import logging
 import bisect
-import sys
 from glucose import GlucoseValue
 import requests
 
@@ -26,6 +25,8 @@ influxClient = None
 callbackQueue = Queue()
 mqttLocalTracking = {}
 sortedGvs = []
+pendingInfluxPoints = []
+pendingNSEntries = []
 
 def on_mqtt_connect(client, userdata, flags, rc):
     logging.info("Connected to mqtt server with result code "+str(rc))
@@ -72,6 +73,8 @@ def queueHandlerLoop():
 def processGlucoseValue(gv):
     global sortedGvs
     global influxClient
+    global pendingInfluxPoints
+    global pendingNSEntries
 
     logging.debug("Processing glucose value: %s" % gv)
     shouldRetain = False
@@ -111,8 +114,12 @@ def processGlucoseValue(gv):
                     "time": gv.st.strftime("%Y-%m-%dT%H:%M:%SZ"),
                     "fields": { "cbg": float(gv.value), "direction": int(gv.trend)}
                 }
-
-        influxClient.write_points([point])
+        pendingInfluxPoints.append(point)
+        try:
+            influxClient.write_points(pendingInfluxPoints)
+            pendingInfluxPoints = []
+        except:
+            logging.error("Error writing to influxdb")
     
     if args.NIGHTSCOUT_URL:
         apiUrl = args.NIGHTSCOUT_URL
@@ -125,7 +132,15 @@ def processGlucoseValue(gv):
             headers["api-secret"] = args.NIGHTSCOUT_SECRET
         if args.NIGHTSCOUT_TOKEN:
             apiUrl += "?token=" + args.NIGHTSCOUT_TOKEN
-        requests.post(apiUrl, headers = headers, data = json.dumps(payload))
+
+        pendingNSEntries.append(json.dumps(payload))
+        try:
+            for pendingEntry in pendingNSEntries:
+                requests.post(apiUrl, headers = headers, data = pendingEntry)
+        except:
+            logging.error("Error writing to nightscout")
+            return
+        pendingNSEntries = []
 
 def main():
     global args
