@@ -55,7 +55,11 @@ class DexcomReceiverSession():
 
     def readGlucoseValues(self):
         try:
-            cutOffDate = datetime.utcnow() - timedelta(hours = 3)
+            if self.initialBackfillExecuted:
+                cutOffDate = datetime.utcnow() - timedelta(hours = 3)
+            else:
+                cutOffDate = datetime.utcnow() - timedelta(hours = 24)
+
             records = self.device.iter_records('EGV_DATA')
             newValueReceived = False
 
@@ -72,7 +76,7 @@ class DexcomReceiverSession():
                 for rec in records:
                     if not rec.display_only:
                         gv = self.recordToGV(rec)
-                        if not self.initialBackfillExecuted or gv.st >= cutOffDate:
+                        if gv.st >= cutOffDate:
                             self.callback(gv)
                         else:
                             break
@@ -80,7 +84,7 @@ class DexcomReceiverSession():
                 for rec in self.device.iter_records('BACKFILLED_EGV'):
                     if not rec.display_only:
                         gv = self.recordToGV(rec)
-                        if not self.initialBackfillExecuted or gv.st >= cutOffDate:
+                        if gv.st >= cutOffDate:
                             self.callback(gv)
                         else:
                             break
