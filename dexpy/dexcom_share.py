@@ -41,6 +41,7 @@ class DexcomShareSession():
         else:
             self.loggedIn = False
 
+        self.session = requests.Session()
         logging.info("started dexcom share client")
         self.setNextRequestTimer()
 
@@ -111,7 +112,7 @@ class DexcomShareSession():
         failed = False
         try:
             url = "https://%s/ShareWebServices/Services/General/SystemUtcTime" % self.address
-            response = requests.get(url)
+            response = self.session.get(url)
         except:
             failed = True
 
@@ -200,7 +201,7 @@ class DexcomShareSession():
         logging.debug("Attempting to login")
         failed = False
         try:
-            result = requests.post(url, data = json.dumps(payload) , headers = headers)
+            result = self.session.post(url, data = json.dumps(payload) , headers = headers)
         except:
             failed = True
         if failed or result.status_code != 200:
@@ -220,7 +221,7 @@ class DexcomShareSession():
                     "User-Agent":"Dexcom Share/3.0.2.11 CFNetwork/711.2.23 Darwin/14.0.0" }
         failed = False
         try:
-            result = requests.post(url, headers = headers)
+            result = self.session.post(url, headers = headers)
         except:
             failed = True
         gvs = []
