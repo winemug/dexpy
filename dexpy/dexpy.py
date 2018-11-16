@@ -27,6 +27,7 @@ mqttLocalTracking = {}
 sortedGvs = []
 pendingInfluxPoints = []
 pendingNSEntries = []
+nsSession = requests.Session()
 
 def on_mqtt_connect(client, userdata, flags, rc):
     logging.info("Connected to mqtt server with result code "+str(rc))
@@ -56,12 +57,13 @@ def queueHandlerLoop():
     global callbackQueue
     global finishUpEvent
 
-    while not finishUpEvent.wait(timeout=0.050):
-        try:
-            gv = callbackQueue.get(block = True, timeout=1)
-            processGlucoseValue(gv)
-        except Empty:
-            pass
+    while not finishUpEvent.wait(timeout=0.200):
+        while True:
+            try:
+                gv = callbackQueue.get(block = True, timeout=0.5)
+                processGlucoseValue(gv)
+            except Empty:
+                break
 
     while True:
         try:
@@ -75,6 +77,7 @@ def processGlucoseValue(gv):
     global influxClient
     global pendingInfluxPoints
     global pendingNSEntries
+    global nsSession
 
     logging.debug("Processing glucose value: %s" % gv)
     shouldRetain = False
@@ -136,7 +139,7 @@ def processGlucoseValue(gv):
         pendingNSEntries.append(json.dumps(payload))
         try:
             for pendingEntry in pendingNSEntries:
-                requests.post(apiUrl, headers = headers, data = pendingEntry)
+                nsSession.post(apiUrl, headers = headers, data = pendingEntry)
         except:
             logging.error("Error writing to nightscout")
             return
