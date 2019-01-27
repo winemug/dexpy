@@ -1,4 +1,4 @@
 paho_mqtt==1.4.0
 pyserial==3.4
-requests==2.19.1
+requests>=2.20.0
 influxdb==5.2.0
