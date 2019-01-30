@@ -3,15 +3,18 @@ services:
         dexpy:
                 build: ./dexpy/
                 image: dexpy:latest
+                privileged: True
+                volumes:
+                        - /dev/bus/usb:/dev/bus/usb
                 environment:
-                        - DEXCOM_SHARE_SERVER=eu
-                        - DEXCOM_SHARE_USERNAME=dexcomusername
-                        - DEXCOM_SHARE_PASSWORD=dexcompassword
-                        - MQTT_SERVER=mqttservername
-                        - MQTT_PORT=1883
+                        - DEXCOM_SHARE_SERVER=
+                        - DEXCOM_SHARE_USERNAME=
+                        - DEXCOM_SHARE_PASSWORD=
+                        - MQTT_SERVER=
+                        - MQTT_PORT=
                         - MQTT_SSL=
-                        - MQTT_CLIENTID=dexpy
-                        - MQTT_TOPIC=cgm/dexcom
+                        - MQTT_CLIENTID=
+                        - MQTT_TOPIC=
                         - INFLUXDB_SERVER=
                         - INFLUXDB_PORT=
                         - INFLUXDB_SSL=
@@ -21,4 +24,4 @@ services:
                         - NIGHTSCOUT_URL=
                         - NIGHTSCOUT_SECRET=
                         - NIGHTSCOUT_TOKEN=
-                        - LOG_LEVEL=ERROR
+                        - LOG_LEVEL=DEBUG
