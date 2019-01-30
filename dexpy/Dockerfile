@@ -1,7 +1,7 @@
 FROM python:2-slim
 
 RUN apt update -y && apt upgrade -y
-RUN apt install -y udev
+RUN apt install -y udev ntp
 
 WORKDIR /usr/src/app
 

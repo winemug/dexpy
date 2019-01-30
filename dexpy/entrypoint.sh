@@ -1,4 +1,7 @@
 #!/bin/bash
+service ntp stop
+ntpd -gq
+service ntp start
 python ./dexpy.py \
         --DEXCOM-SHARE-SERVER $DEXCOM_SHARE_SERVER \
         --DEXCOM-SHARE-USERNAME $DEXCOM_SHARE_USERNAME \
