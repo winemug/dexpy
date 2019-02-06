@@ -13,17 +13,16 @@ The purpose of this software is to make the receiver more useful by giving the u
 In order to transfer the readings in real-time, you need to connect the receiver via usb to a computer where you run this software. It could be for example a raspberry pi (small and mobile) or just any computer in a fixed spot (say, livingroom?).
 
 # Features
-  Can.. :
+##  It can:
   - .. read sensor data directly from the dexcom receiver
   - .. read sensor data online from the dexcom share server (sharing must be enabled with the official dexcom app)
   - .. publish sensor data to a Nightscout instance
   - .. publish sensor data to an MQTT server
   - .. publish sensor data to an InfluxDB server
   - .. automatically transmit back-fill data as it becomes available
-
-  Can not:
+##  It cannot:
   - Update data on the dexcom share server with receiver readings
-  Will not:
+##  It will not:
   - Update data on the dexcom share server, because the hours long outage on new years eve of 2019 was simply unacceptable.
 
 # Setup
