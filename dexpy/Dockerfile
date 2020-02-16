@@ -10,6 +10,7 @@ RUN mkdir -p /etc/udev/rules.d
 RUN cp /usr/src/app/80-dexcom.rules /etc/udev/rules.d/
 #RUN udevadm control -R
 #RUN udevadm trigger
+RUN chmod 755 /usr/src/app/entrypoint.sh
 
 RUN pip install --no-cache-dir -r requirements.txt
 
