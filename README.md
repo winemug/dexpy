@@ -27,10 +27,45 @@ In order to transfer the readings in real-time, you need to connect the receiver
 
 # Setup
 ## Installation
+
+### Raspbian / Debian
+sudo apt install -y udev ntp git python-pip
+git clone https://github.com/winemug/dexpy.git
+sudo mkdir -p /etc/udev/rules.d
+cd dexpy/dexpy
+cp 80-dexcom.rules /etc/udev/rules.d/
+chmod 755 dexpy.py
+./dexpy.py 
+python ./dexpy.py \
+        --DEXCOM-SHARE-SERVER us \
+        --DEXCOM-SHARE-USERNAME myusername \
+        --DEXCOM-SHARE-PASSWORD mypassword \
+        --LOG-LEVEL INFO
+
+for other parameters check out the Configuration section below.
+
+### Docker
 dexpy software is provided as a docker container and a docker-compose script is attached for convenience. <tba>
 
-## Configuration
-<tba>
+## Parameters
+DEXCOM-SHARE-SERVER: Enter "us" or "eu" based on your location, leave blank if you don't want to store your data in dexcom's cloud.
+DEXCOM-SHARE-USERNAME: Enter username for your dexcom share account or leave blank if you're not using it.
+DEXCOM-SHARE-PASSWORD: Enter password for your dexcom share account or leave blank if you're not using it.
+
+MQTT-SERVER: Enter the hostname for an MQTT server to post received glucose values or leave blank for not using mqtt
+MQTT-PORT: Enter the port number for the mqtt server
+MQTT-SSL: "True" if you're using ssl, otherwise "False"
+MQTT-TOPIC: Full name of the topic to post messages to
+
+INFLUXDB-SERVER: Enter the hostname for your influxdb server
+INFLUXDB-PORT: Enter the port for the http interface to your influxdb server
+INFLUXDB-SSL: "True" if you're using ssl, otherwise "False"
+
+NIGHTSCOUT-URL: Enter the full url of your nightscout website (only root, no api links etc, i.e. https://mynightscout.azureblabla.local/) leave blank if not using nightscout.
+NIGHTSCOUT-SECRET: Enter the password used to access nightscout or if you're using a token, leave blank.
+NIGHTSCOUT-TOKEN: Enter the token you've generated using nightscout or if you're using the nightscout-secret option, leave blank.
+
+Note: If you enable the "Dexcom Share Server" option, dexpy will also read cgm data off the dexcom's servers and publish it to other services you have configured. This is useful if you're using the Dexcom app on a phone to connect to the transmitter but want your data consolidated elsewhere.
 
 # Acknowledgements
 
