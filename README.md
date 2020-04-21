@@ -65,7 +65,7 @@ NIGHTSCOUT-URL: Enter the full url of your nightscout website (only root, no api
 NIGHTSCOUT-SECRET: Enter the password used to access nightscout or if you're using a token, leave blank.<br/>
 NIGHTSCOUT-TOKEN: Enter the token you've generated using nightscout or if you're using the nightscout-secret option, leave blank.<br/>
 <br/>
-Note: If you enable the "Dexcom Share Server" option, dexpy will also read cgm data off the dexcom's servers and publish it to other services you have configured. This is useful if you're using the Dexcom app on a phone to connect to the transmitter but want your data consolidated elsewhere.
+Note: If you enable the "Dexcom Share Server" option, dexpy will also read cgm data from dexcom's servers (if it's not available on the receiver) and publish it to other services you have configured. This is useful if you're using the Dexcom app on a phone to connect to the transmitter but want your data consolidated elsewhere.
 
 # Acknowledgements
 
