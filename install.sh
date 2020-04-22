@@ -9,7 +9,8 @@ Description=Dexpy
 echo After=network.target
 
 [Service]
-ExecStart=($pwd)entrypoint.sh
+EnvironmentFile=-($pwd)dexpy.env
+ExecStart=($pwd)dexpy-start.sh
 WorkingDirectory=($pwd)
 StandardOutput=inherit
 StandardError=inherit
@@ -20,5 +21,6 @@ User=($logname)
 [Install]
 WantedBy=multi-user.target" > dexpy.service
 cp dexpy.service /etc/systemd/system/
+chmod 755 dexpy-start.sh
 systemctl enable dexpy.service
 systemctl start dexpy.service
