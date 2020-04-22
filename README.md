@@ -28,7 +28,7 @@ In order to transfer the readings in real-time, you need to connect the receiver
 # Setup
 ## Installation
 
-### Raspbian / Debian
+### On Raspbian / Debian
 Install git if you don't have it:
 ```
 sudo apt install -y git
@@ -50,8 +50,9 @@ Run the install script and start dexpy
 sudo ./install.sh
 ```
 
-### Docker
-dexpy software is provided as a docker container and a docker-compose script is attached for convenience. <tba>
+### Run with docker
+
+<to be described>
 
 ## Parameters
 DEXCOM-SHARE-SERVER: Enter "us" or "eu" based on your location, leave blank if you don't want to store your data in dexcom's cloud.<br/>

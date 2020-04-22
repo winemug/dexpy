@@ -1,7 +1,7 @@
 version: "3.5"
 services:
         dexpy:
-                build: ./dexpy/
+                build: ./
                 image: dexpy:latest
                 privileged: True
                 volumes:
