@@ -1,0 +1,15 @@
+[Unit]
+Description=Dexpy
+After=network.target
+
+[Service]
+ExecStart=/usr/bin/python2 -u /home/pi/dexpy/dexpy.py
+WorkingDirectory=/home/pi/dexpy
+StandardOutput=inherit
+StandardError=inherit
+TimeoutStopSec=30
+Restart=on-abort
+User=pi
+
+[Install]
+WantedBy=multi-user.target
