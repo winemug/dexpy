@@ -6,7 +6,7 @@ cp 80-dexcom.rules /etc/udev/rules.d/
 echo "
 [Unit]
 Description=Dexpy
-echo After=network.target
+After=network.target
 
 [Service]
 EnvironmentFile=-($pwd)dexpy.env
