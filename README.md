@@ -23,7 +23,7 @@ In order to transfer the readings in real-time, you need to connect the receiver
 ##  It cannot:
   - Update data on the dexcom share server with receiver readings
 ##  It will not:
-  - Update data on the dexcom share server, because the hours long outage on new years eve of 2019 was simply unacceptable.
+  - Update data on the dexcom share server, because the hours long outage on new years eve of 2019 was simply unacceptable. (and it happened again in 2020 -so unexpectedly)
 
 # Setup
 ## Installation
@@ -52,27 +52,34 @@ sudo ./install.sh
 
 ### Run with docker
 
-<to be described>
+to be described
 
-## Parameters
-DEXCOM-SHARE-SERVER: Enter "us" or "eu" based on your location, leave blank if you don't want to store your data in dexcom's cloud.<br/>
-DEXCOM-SHARE-USERNAME: Enter username for your dexcom share account or leave blank if you're not using it.<br/>
-DEXCOM-SHARE-PASSWORD: Enter password for your dexcom share account or leave blank if you're not using it.<br/>
-<br/>
-MQTT-SERVER: Enter the hostname for an MQTT server to post received glucose values or leave blank for not using mqtt<br/>
-MQTT-PORT: Enter the port number for the mqtt server<br/>
-MQTT-SSL: "True" if you're using ssl, otherwise "False"<br/>
-MQTT-TOPIC: Full name of the topic to post messages to<br/>
-<br/>
-INFLUXDB-SERVER: Enter the hostname for your influxdb server<br/>
-INFLUXDB-PORT: Enter the port for the http interface to your influxdb server<br/>
-INFLUXDB-SSL: "True" if you're using ssl, otherwise "False"<br/>
-<br/>
-NIGHTSCOUT-URL: Enter the full url of your nightscout website (only root, no api links etc, i.e. https://mynightscout.azureblabla.local/) leave blank if not using nightscout.<br/>
-NIGHTSCOUT-SECRET: Enter the password used to access nightscout or if you're using a token, leave blank.<br/>
-NIGHTSCOUT-TOKEN: Enter the token you've generated using nightscout or if you're using the nightscout-secret option, leave blank.<br/>
-<br/>
-Note: If you enable the "Dexcom Share Server" option, dexpy will also read cgm data from dexcom's servers (if it's not available on the receiver) and publish it to other services you have configured. This is useful if you're using the Dexcom app on a phone to connect to the transmitter but want your data consolidated elsewhere.
+## Configuration (dexpy.env file)
+### Reading from Dexcom Receiver via USB
+There are no configuration options, as long as the receiver is connected via usb, dexpy will take the readings from it.
+
+### Reading from Dexcom Share online
+**DEXCOM-SHARE-SERVER**: "us" or "eu" based on your location, leave blank if you don't store your data in dexcom's cloud.<br/>
+**DEXCOM-SHARE-USERNAME**: Username for your dexcom share account.<br/>
+**DEXCOM-SHARE-PASSWORD**: Password for your dexcom share account.<br/>
+
+### Sending data to an MQTT server
+**MQTT-SERVER**: Hostname for an MQTT server to post received glucose values or leave blank for not using mqtt<br/>
+**MQTT-PORT**: Port number for the mqtt server<br/>
+**MQTT-SSL**: "True" if you're using ssl, otherwise "False"<br/>
+**MQTT-TOPIC**: Full name of the topic to post messages to<br/>
+
+### Writing data to an Influx database
+**INFLUXDB-SERVER**: Hostname for your influxdb server<br/>
+**INFLUXDB-PORT**: Port for the http interface to your influxdb server<br/>
+**INFLUXDB-SSL**: "True" if you're using ssl, otherwise "False"<br/>
+
+### Sending data to a Nightscout instance
+**NIGHTSCOUT-URL**: Full url of your nightscout website (only root, no api links etc, i.e. https://mynightscout.azureblabla.local/) leave blank if not using nightscout.<br/>
+**NIGHTSCOUT-SECRET**: Password (the 12 character passphrase) used to access nightscout or if you're using a token, leave blank.<br/>
+**NIGHTSCOUT-TOKEN**: Enter the token you've generated using nightscout or if you're using the nightscout-secret option, leave blank.<br/>
+
+Note: If you enable the "Dexcom Share Server" option, dexpy will read cgm data from dexcom's servers (whether it's available on the receiver or not) and publish it to other services you have configured. This is useful if you're using the Dexcom app on a phone to connect to the transmitter but want your data consolidated elsewhere.
 
 # Acknowledgements
 
