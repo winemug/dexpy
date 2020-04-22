@@ -1,5 +1,5 @@
 #!/bin/bash
-apt get install -y udev python-pip
+apt install -y udev python-pip
 pip install --no-cache-dir -r requirements.txt
 mkdir -p /etc/udev/rules.d
 cp 80-dexcom.rules /etc/udev/rules.d/
