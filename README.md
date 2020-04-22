@@ -29,20 +29,26 @@ In order to transfer the readings in real-time, you need to connect the receiver
 ## Installation
 
 ### Raspbian / Debian
-sudo apt install -y udev ntp git python-pip
-git clone https://github.com/winemug/dexpy.git
-sudo mkdir -p /etc/udev/rules.d
-cd dexpy/dexpy
-cp 80-dexcom.rules /etc/udev/rules.d/
-chmod 755 dexpy.py
-./dexpy.py 
-python ./dexpy.py \
-        --DEXCOM-SHARE-SERVER us \
-        --DEXCOM-SHARE-USERNAME myusername \
-        --DEXCOM-SHARE-PASSWORD mypassword \
-        --LOG-LEVEL INFO
+Install git if you don't have it:
+```
+sudo apt install -y git
+```
 
-for other parameters check out the Configuration section below.
+Clone this repository:
+```
+git clone https://github.com/winemug/dexpy.git
+```
+
+Edit the configuration:
+```
+cd dexpy
+nano dexpy.env
+```
+
+Run the install script and start dexpy
+```
+sudo ./install.sh
+```
 
 ### Docker
 dexpy software is provided as a docker container and a docker-compose script is attached for convenience. <tba>

@@ -9,14 +9,14 @@ Description=Dexpy
 After=network.target
 
 [Service]
-EnvironmentFile=-($pwd)dexpy.env
-ExecStart=($pwd)dexpy-start.sh
-WorkingDirectory=($pwd)
+EnvironmentFile=-$(pwd)/dexpy.env
+ExecStart=$(pwd)/dexpy-start.sh
+WorkingDirectory=$(pwd)
 StandardOutput=inherit
 StandardError=inherit
 TimeoutStopSec=30
 Restart=on-abort
-User=($logname)
+User=$(logname)
 
 [Install]
 WantedBy=multi-user.target" > dexpy.service
