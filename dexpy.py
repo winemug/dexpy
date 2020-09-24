@@ -1,10 +1,11 @@
-#!/usr/bin/python2
+#!/usr/bin/python3
 
 import json
+from queue import Queue, Empty
+
 import paho.mqtt.client as mqttc
 from paho.mqtt.client import MQTTv311
 from influxdb import InfluxDBClient
-from Queue import Queue, Empty
 import argparse
 import threading
 import ssl
@@ -29,16 +30,20 @@ pendingInfluxPoints = []
 pendingNSEntries = []
 nsSession = requests.Session()
 
+
 def on_mqtt_connect(client, userdata, flags, rc):
-    logging.info("Connected to mqtt server with result code "+str(rc))
+    logging.info("Connected to mqtt server with result code " + str(rc))
     logging.debug("Pending %d messages in local queue" % len(mqttLocalTracking))
 
+
 def on_mqtt_disconnect(client, userdata, rc):
-    logging.info("Disconnected from mqtt with result code "+str(rc))
+    logging.info("Disconnected from mqtt with result code " + str(rc))
     logging.debug("Pending %d messages in local queue" % len(mqttLocalTracking))
+
 
 def on_mqtt_message_receive(client, userdata, msg):
     logging.info("mqtt message received: " + msg)
+
 
 def on_mqtt_message_publish(client, userdata, mid):
     logging.info("mqtt message published: " + str(mid))
@@ -48,9 +53,11 @@ def on_mqtt_message_publish(client, userdata, mid):
         logging.debug("unknown message id: " + str(mid))
     logging.debug("Pending %d messages in local queue" % len(mqttLocalTracking))
 
+
 def glucoseValueCallback(gv):
     global callbackQueue
     callbackQueue.put(gv)
+
 
 def queueHandlerLoop():
     global mqttClient
@@ -60,18 +67,19 @@ def queueHandlerLoop():
     while not finishUpEvent.wait(timeout=0.200):
         while True:
             try:
-                gv = callbackQueue.get(block = True, timeout=0.5)
+                gv = callbackQueue.get(block=True, timeout=0.5)
                 processGlucoseValue(gv)
             except Empty:
                 break
 
     while True:
         try:
-            gv = callbackQueue.get(block = False)
+            gv = callbackQueue.get(block=False)
             processGlucoseValue(gv)
         except Empty:
             break
-       
+
+
 def processGlucoseValue(gv):
     global sortedGvs
     global influxClient
@@ -83,7 +91,7 @@ def processGlucoseValue(gv):
     shouldRetain = False
 
     i = bisect.bisect_right(sortedGvs, gv)
-    if i > 0 and sortedGvs[i-1] == gv:
+    if i > 0 and sortedGvs[i - 1] == gv:
         logging.debug("Received value is a duplicate, skipping.")
         return
     elif i == len(sortedGvs):
@@ -96,7 +104,7 @@ def processGlucoseValue(gv):
         sortedGvs = newList
 
     if len(sortedGvs) > 200:
-        cutOffDate = datetime.utcnow() - timedelta(hours = 3)
+        cutOffDate = datetime.utcnow() - timedelta(hours=3)
         cutOffGv = GlucoseValue(None, None, cutOffDate, 0, 0)
         cutOffPosition = bisect.bisect_left(sortedGvs, cutOffGv)
         if cutOffPosition:
@@ -106,31 +114,31 @@ def processGlucoseValue(gv):
     ts = int((gv.st - datetime.utcfromtimestamp(0)).total_seconds())
     if args.MQTT_SERVER:
         msg = "%d|%s|%s" % (ts, gv.trend, gv.value)
-        x, mid = mqttClient.publish(args.MQTT_TOPIC, payload = msg, retain = shouldRetain, qos = 2)
+        x, mid = mqttClient.publish(args.MQTT_TOPIC, payload=msg, retain=shouldRetain, qos=2)
         logging.debug("publish to mqtt requested with message id: " + str(mid))
         mqttLocalTracking[mid] = gv
 
     if args.INFLUXDB_SERVER:
         point = {
-                    "measurement": "measurements",
-                    "tags": { "device": "dexcomg6", "source": "dexpy", "unit": "mg/dL" },
-                    "time": gv.st.strftime("%Y-%m-%dT%H:%M:%SZ"),
-                    "fields": { "cbg": float(gv.value), "direction": int(gv.trend)}
-                }
+            "measurement": "measurements",
+            "tags": {"device": "dexcomg6", "source": "dexpy", "unit": "mg/dL"},
+            "time": gv.st.strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "fields": {"cbg": float(gv.value), "direction": int(gv.trend)}
+        }
         pendingInfluxPoints.append(point)
         try:
             influxClient.write_points(pendingInfluxPoints)
             pendingInfluxPoints = []
         except:
             logging.error("Error writing to influxdb")
-    
+
     if args.NIGHTSCOUT_URL:
         apiUrl = args.NIGHTSCOUT_URL
         if apiUrl[-1] != "/":
             apiUrl += "/"
         apiUrl += "api/v1/entries/"
-        payload = { "sgv":gv.value, "type":"sgv", "direction":gv.trendString, "date":ts*1000 }
-        headers = {"Content-Type":"application/json"}
+        payload = {"sgv": gv.value, "type": "sgv", "direction": gv.trendString, "date": ts * 1000}
+        headers = {"Content-Type": "application/json"}
         if args.NIGHTSCOUT_SECRET:
             headers["api-secret"] = args.NIGHTSCOUT_SECRET
         if args.NIGHTSCOUT_TOKEN:
@@ -139,11 +147,12 @@ def processGlucoseValue(gv):
         pendingNSEntries.append(json.dumps(payload))
         try:
             for pendingEntry in pendingNSEntries:
-                nsSession.post(apiUrl, headers = headers, data = pendingEntry)
+                nsSession.post(apiUrl, headers=headers, data=pendingEntry)
         except:
             logging.error("Error writing to nightscout")
             return
         pendingNSEntries = []
+
 
 def main():
     global args
@@ -154,12 +163,12 @@ def main():
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--DEXCOM-SHARE-SERVER", required=False, default=None, nargs="?")
-    parser.add_argument("--DEXCOM-SHARE-USERNAME", required=False, default="", nargs="?") 
-    parser.add_argument("--DEXCOM-SHARE-PASSWORD", required=False, default="", nargs="?") 
-    parser.add_argument("--MQTT-SERVER", required=False, default=None, nargs="?") 
-    parser.add_argument("--MQTT-PORT", required=False, default="1881", nargs="?") 
-    parser.add_argument("--MQTT-SSL", required=False, default="", nargs="?") 
-    parser.add_argument("--MQTT-CLIENTID", required=False, default="dexpy", nargs="?") 
+    parser.add_argument("--DEXCOM-SHARE-USERNAME", required=False, default="", nargs="?")
+    parser.add_argument("--DEXCOM-SHARE-PASSWORD", required=False, default="", nargs="?")
+    parser.add_argument("--MQTT-SERVER", required=False, default=None, nargs="?")
+    parser.add_argument("--MQTT-PORT", required=False, default="1881", nargs="?")
+    parser.add_argument("--MQTT-SSL", required=False, default="", nargs="?")
+    parser.add_argument("--MQTT-CLIENTID", required=False, default="dexpy", nargs="?")
     parser.add_argument("--MQTT-TOPIC", required=False, default="cgm", nargs="?")
     parser.add_argument("--INFLUXDB-SERVER", required=False, default=None, nargs="?")
     parser.add_argument("--INFLUXDB-PORT", required=False, default="8086", nargs="?")
@@ -177,16 +186,16 @@ def main():
     logging.basicConfig(level=args.LOG_LEVEL)
 
     if args.INFLUXDB_SERVER:
-        influxClient = InfluxDBClient(args.INFLUXDB_SERVER, args.INFLUXDB_PORT, args.INFLUXDB_USERNAME, args.INFLUXDB_PASSWORD, args.INFLUXDB_DATABASE, ssl = args.INFLUXDB_SSL)
-
+        influxClient = InfluxDBClient(args.INFLUXDB_SERVER, args.INFLUXDB_PORT, args.INFLUXDB_USERNAME,
+                                      args.INFLUXDB_PASSWORD, args.INFLUXDB_DATABASE, ssl=args.INFLUXDB_SSL)
 
     if args.MQTT_SERVER:
         mqttClient = mqttc.Client(client_id=args.MQTT_CLIENTID, clean_session=True, protocol=MQTTv311, transport="tcp")
 
         if args.MQTT_SSL != "":
             mqttClient.tls_set(certfile=None,
-                                        keyfile=None, cert_reqs=ssl.CERT_REQUIRED,
-                                        tls_version=ssl.PROTOCOL_TLSv1_2, ciphers=None)
+                               keyfile=None, cert_reqs=ssl.CERT_REQUIRED,
+                               tls_version=ssl.PROTOCOL_TLSv1_2, ciphers=None)
             mqttClient.tls_insecure_set(True)
 
         mqttClient.on_connect = on_mqtt_connect
@@ -197,7 +206,7 @@ def main():
         logging.info("connecting to mqtt service")
         mqttClient.reconnect_delay_set(min_delay=15, max_delay=120)
         mqttClient.connect_async(args.MQTT_SERVER, port=args.MQTT_PORT, keepalive=60)
-        mqttClient.retry_first_connection=True
+        mqttClient.retry_first_connection = True
         mqttClient.loop_start()
 
     dexcomShareSession = None
@@ -207,7 +216,7 @@ def main():
                                                 args.DEXCOM_SHARE_USERNAME, \
                                                 args.DEXCOM_SHARE_PASSWORD, \
                                                 glucoseValueCallback)
-        
+
         logging.info("starting monitoring the share server")
         dexcomShareSession.startMonitoring()
 
@@ -215,11 +224,11 @@ def main():
     dexcomReceiverSession = DexcomReceiverSession(glucoseValueCallback)
     dexcomReceiverSession.startMonitoring()
 
-    queueHandler = threading.Thread(target = queueHandlerLoop)
+    queueHandler = threading.Thread(target=queueHandlerLoop)
     queueHandler.start()
 
     try:
-        while not exitEvent.wait(timeout = 1000):
+        while not exitEvent.wait(timeout=1000):
             pass
     except KeyboardInterrupt:
         pass
@@ -264,8 +273,10 @@ def main():
 def signalHandler(signo, _frame):
     exitEvent.set()
 
+
 if __name__ == '__main__':
     import signal
+
     for sig in ('TERM', 'HUP', 'INT'):
-        signal.signal(getattr(signal, 'SIG'+sig), signalHandler)
+        signal.signal(getattr(signal, 'SIG' + sig), signalHandler)
     main()
