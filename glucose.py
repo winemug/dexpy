@@ -5,8 +5,8 @@ NightscoutTrendStrings = ['None', 'DoubleUp', 'SingleUp', 'FortyFiveUp', 'Flat',
 
 def parseDateTime(val):
     res = re.search("Date\\((\\d*)", val)
-    epoch = float(res.group(1)) / 1000
-    return datetime.datetime.utcfromtimestamp(epoch)
+    return float(res.group(1)) / 1000
+
 
 class GlucoseValue():
     def __init__(self, dt, wt, st, value, trend):
@@ -16,7 +16,6 @@ class GlucoseValue():
         self.value = value
         self.trend = trend
         self.trendString = self.trendAsString(trend)
-        self.trackingId = None
 
     def trendAsString(self, trend):
         return NightscoutTrendStrings[trend]
@@ -31,7 +30,7 @@ class GlucoseValue():
         return GlucoseValue(dt, wt, st, value, trend)
 
     def __cmp__(self, other):
-        secondDifference = (self.st - other.st).total_seconds()
+        secondDifference = self.st - other.st
         if abs(secondDifference) < 240 and \
             self.trend == other.trend and \
             int(round(self.value)) != int(round(other.value)):
@@ -39,7 +38,7 @@ class GlucoseValue():
         return secondDifference if secondDifference != 0 else 1
 
     def equals(self, other):
-        secondDifference = abs((self.st - other.st).total_seconds())
+        secondDifference = abs((self.st - other.st))
         if secondDifference >= 240:
             return False
         if self.trend != other.trend:

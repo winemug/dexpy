@@ -1,10 +1,12 @@
-
-from usbreceiver.database_records import constants
-from usbreceiver.readdata import Dexcom
+import time
 from datetime import datetime, timedelta
 from glucose import GlucoseValue
 import threading
 import logging
+
+from usbreceiver import constants
+from usbreceiver.readdata import Dexcom
+
 
 class DexcomReceiverSession():
     def __init__(self, callback):
@@ -32,14 +34,14 @@ class DexcomReceiverSession():
             if self.device is None:
                 port = Dexcom.FindDevice()
                 if port is None:
-                    logging.warn("Dexcom receiver not found")
+                    logging.warning("Dexcom receiver not found")
                     return False
                 else:
                     self.device = Dexcom(port)
-            self.systemTimeOffset = self.getUtcOffsetForSystemTime()
+            self.systemTimeOffset = self.get_device_time_offset()
             return True
         except Exception as e:
-            logging.warn("Error reading from usb device\n" + str(e))
+            logging.warning("Error reading from usb device\n" + str(e))
             self.device = None
             self.systemTimeOffset = None
             return False
@@ -53,12 +55,13 @@ class DexcomReceiverSession():
         with self.lock:
             self.timer.cancel()
 
-    def readGlucoseValues(self):
+    def readGlucoseValues(self, ts_cut_off: float = None):
         try:
-            if self.initialBackfillExecuted:
-                cutOffDate = datetime.utcnow() - timedelta(hours = 3)
-            else:
-                cutOffDate = datetime.utcnow() - timedelta(hours = 24)
+            if ts_cut_off is None:
+                if self.initialBackfillExecuted:
+                    ts_cut_off = time.time() - 3 * 60 * 60
+                else:
+                    ts_cut_off = time.time() - 24 * 60 * 60
 
             records = self.device.iter_records('EGV_DATA')
             newValueReceived = False
@@ -76,7 +79,7 @@ class DexcomReceiverSession():
                 for rec in records:
                     if not rec.display_only:
                         gv = self.recordToGV(rec)
-                        if gv.st >= cutOffDate:
+                        if gv.st >= ts_cut_off:
                             self.callback(gv)
                         else:
                             break
@@ -84,7 +87,7 @@ class DexcomReceiverSession():
                 for rec in self.device.iter_records('BACKFILLED_EGV'):
                     if not rec.display_only:
                         gv = self.recordToGV(rec)
-                        if gv.st >= cutOffDate:
+                        if gv.st >= ts_cut_off:
                             self.callback(gv)
                         else:
                             break
@@ -92,8 +95,13 @@ class DexcomReceiverSession():
             self.initialBackfillExecuted = True
             return newValueReceived
         except Exception as e:
-            logging.warn("Error reading from usb device\n" + str(e))
+            logging.warning("Error reading from usb device\n" + str(e))
             return False
+
+    def get_device_time_offset(self):
+        now_time = time.time()
+        device_time = self.device.ReadSystemTime()
+        return now_time - device_time
 
     def getUtcOffsetForSystemTime(self):
         deviceTime = self.device.ReadSystemTime()

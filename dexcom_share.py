@@ -65,7 +65,7 @@ class DexcomShareSession():
             lwtIndex = 0
         elif lwtIndex < len(waitTimes) - 1:
             lwtIndex += 1
-    	else:
+        else:
             self.loggedIn = False
             lwtIndex = 0
         self.lastWaitTimeForValidReading = lwtIndex
