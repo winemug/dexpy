@@ -38,22 +38,25 @@
 #   - Added USER_SETTING_DATA for G5 & G6.
 #
 #########################################################################
+from msgpack.fallback import xrange
 
-import crc16
-import constants
-import database_records
+import usbreceiver.crc16
+import usbreceiver.constants
+import usbreceiver.database_records
 import datetime
 import serial
 import sys
 import time
-import packetwriter
+import usbreceiver.packetwriter
 import struct
 import re
-import util
+import usbreceiver.util
 import xml.etree.ElementTree as ET
 import platform
 
 # Some services are only to be invoked on unix-based OSs
+from usbreceiver import database_records, constants, util, packetwriter
+
 if sys.platform == "linux" or sys.platform == "linux2" or sys.platform == "darwin":
     import grp
     import pwd
@@ -131,7 +134,7 @@ class Dexcom(object):
           else: # unrecognized firmware version
               return fw_ver
     except Exception as e:
-        print 'GetDeviceType() : Exception =', e
+        print('GetDeviceType() : Exception =', e)
         return None
 
   @classmethod
@@ -145,21 +148,21 @@ class Dexcom(object):
       # Uncomment two lines below to show the size of each record type
       #for item in dex.DataPartitions():
           #print item.attrib
-      print 'Firmware.ProductId =', dex.GetFirmwareHeader().get('ProductId')
-      print ('Found %s S/N: %s'
+      print('Firmware.ProductId =', dex.GetFirmwareHeader().get('ProductId'))
+      print('Found %s S/N: %s'
              % (dex.GetFirmwareHeader().get('ProductName'),
                 dex.ReadManufacturingData().get('SerialNumber')))
-      print 'Transmitter paired: %s' % dex.ReadTransmitterId()
-      print 'Battery Status: %s (%d%%)' % (dex.ReadBatteryState(),
-                                           dex.ReadBatteryLevel())
-      print 'Record count:'
-      print '- Meter records: %d' % (len(dex.ReadRecords('METER_DATA')))
-      print '- CGM records: %d' % (len(dex.ReadRecords('EGV_DATA')))
-      print ('- CGM commitable records: %d'
+      print('Transmitter paired: %s' % dex.ReadTransmitterId())
+      print('Battery Status: %s (%d%%)' % (dex.ReadBatteryState(),
+                                           dex.ReadBatteryLevel()))
+      print('Record count:')
+      print('- Meter records: %d' % (len(dex.ReadRecords('METER_DATA'))))
+      print('- CGM records: %d' % (len(dex.ReadRecords('EGV_DATA'))))
+      print('- CGM commitable records: %d'
              % (len([not x.display_only for x in dex.ReadRecords('EGV_DATA')])))
-      print '- Event records: %d' % (len(dex.ReadRecords('USER_EVENT_DATA')))
-      print '- Insertion records: %d' % (len(dex.ReadRecords('INSERTION_TIME')))
-      print '- Calibration records: %d' % (len(dex.ReadRecords('CAL_SET')))
+      print('- Event records: %d' % (len(dex.ReadRecords('USER_EVENT_DATA'))))
+      print('- Insertion records: %d' % (len(dex.ReadRecords('INSERTION_TIME'))))
+      print('- Calibration records: %d' % (len(dex.ReadRecords('CAL_SET'))))
 
       # Uncomment out any record types you want to display
 
@@ -194,7 +197,8 @@ class Dexcom(object):
       # device type and restrict the following code to G5 or G6 cases.
       myDevType = dex.GetDeviceType()
       if (myDevType == 'g5') or (myDevType == 'g6') :
-          print '- User Setting Records: %d' % (len(dex.ReadRecords('USER_SETTING_DATA')))
+        pass
+          # print '- User Setting Records: %d' % (len(dex.ReadRecords('USER_SETTING_DATA')))
 
           #################################################################################
           # Every time you modify any user configuration parameter, a new USER_SETTING_DATA
@@ -239,25 +243,25 @@ class Dexcom(object):
                 self._port = serial.Serial(port=self._port_name, baudrate=115200)
 
         except serial.SerialException:
-            print 'Read/Write permissions missing for', self._port_name
+            print('Read/Write permissions missing for', self._port_name)
             if sys.platform == "linux" or sys.platform == "linux2" or sys.platform == "darwin":
                 stat_info = os.stat(self._port_name)
                 port_gid = stat_info.st_gid
                 port_group = grp.getgrgid(port_gid)[0]
                 username = pwd.getpwuid(os.getuid())[0]
-                print '\nFor a persistent solution (recommended), run ...'
-                if sys.platform == "darwin":
-                    print '\n   sudo dseditgroup -o edit -a', username, '-t user', port_group
-                else:
-                    # On Mint, Ubuntu, etc.
-                    print '\n   sudo addgroup', username, port_group
-                    print '\n   sudo -', username
-                    print '\n         OR'
-                    # On Fedora, Red Hat, etc.
-                    print '\n   sudo usermod -a -G', port_group, username
-                    print '\n   su -', username
-                print '\nFor a short term solution, run ...'
-                print '\n   sudo chmod 666', self._port_name,'\n'
+                # print '\nFor a persistent solution (recommended), run ...'
+                # if sys.platform == "darwin":
+                #     print '\n   sudo dseditgroup -o edit -a', username, '-t user', port_group
+                # else:
+                #     # On Mint, Ubuntu, etc.
+                #     print '\n   sudo addgroup', username, port_group
+                #     print '\n   sudo -', username
+                #     print '\n         OR'
+                #     # On Fedora, Red Hat, etc.
+                #     print '\n   sudo usermod -a -G', port_group, username
+                #     print '\n   su -', username
+                # print '\nFor a short term solution, run ...'
+                # print '\n   sudo chmod 666', self._port_name,'\n'
     if self._port is not None:
         try:
             self.clear()
@@ -309,7 +313,7 @@ class Dexcom(object):
     total_read = 4
     initial_read = self.read(total_read)
     all_data = initial_read
-    if ord(initial_read[0]) == 1:
+    if initial_read[0] == 1:
       command = initial_read[3]
       data_number = struct.unpack('<H', initial_read[1:3])[0]
       if data_number > 6:
@@ -322,7 +326,7 @@ class Dexcom(object):
         out =  ''
       suffix = self.read(2)
       sent_crc = struct.unpack('<H', suffix)[0]
-      local_crc = crc16.crc16(all_data, 0, total_read)
+      local_crc = usbreceiver.crc16.crc16(all_data, 0, total_read)
       if sent_crc != local_crc:
         raise constants.CrcError("readpacket Failed CRC check")
       num1 = total_read + 2
@@ -347,7 +351,7 @@ class Dexcom(object):
   def WriteCommand(self, command_id, *args, **kwargs):
     p = packetwriter.PacketWriter()
     p.ComposePacket(command_id, *args, **kwargs)
-    self.WritePacket(p.PacketString())
+    self.WritePacket(p.get_packet_bytes())
 
   def GenericReadCommand(self, command_id):
     self.WriteCommand(command_id)
@@ -480,13 +484,13 @@ class Dexcom(object):
     self.WriteCommand(constants.READ_DATABASE_PAGES,
                       (chr(record_type_index), struct.pack('I', page), chr(1)))
     packet = self.readpacket()
-    assert ord(packet.command) == 1
+    assert packet.command == 1
     # first index (uint), numrec (uint), record_type (byte), revision (byte),
     # page# (uint), r1 (uint), r2 (uint), r3 (uint), ushort (Crc)
     header_format = '<2IcB4IH'
     header_data_len = struct.calcsize(header_format)
     header = struct.unpack_from(header_format, packet.data)
-    header_crc = crc16.crc16(packet.data[:header_data_len-2])
+    header_crc = usbreceiver.crc16.crc16(packet.data[:header_data_len - 2])
     assert header_crc == header[-1]
     assert ord(header[2]) == record_type_index
     assert header[4] == page

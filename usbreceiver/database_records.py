@@ -41,12 +41,15 @@
 # allows one to read the user configuration settings.
 #
 #########################################################################
+from msgpack.fallback import xrange
 
-import crc16
-import constants
+import usbreceiver.crc16
+import usbreceiver.constants
 import struct
-import util
+import usbreceiver.util
 import binascii
+
+from usbreceiver import constants, util
 
 EGV_TESTNUM_MASK = 0x00ffffff
 
@@ -95,7 +98,7 @@ class BaseDatabaseRecord(object):
     return ''.join(' %02x' % ord(c) for c in self.raw_data)
 
   def calculate_crc(self):
-    return crc16.crc16(self.raw_data[:-2])
+    return usbreceiver.crc16.crc16(self.raw_data[:-2])
 
   @classmethod
   def Create(cls, data, record_counter):

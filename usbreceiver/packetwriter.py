@@ -27,7 +27,7 @@
 #
 #########################################################################
 
-import crc16
+import usbreceiver.crc16
 import struct
 
 class PacketWriter(object):
@@ -51,28 +51,30 @@ class PacketWriter(object):
 
   def PacketString(self):
     return ''.join(self._packet)
+
+  def get_packet_bytes(self):
+    return bytes(self._packet)
  
   def AppendCrc(self):
     self.SetLength()
-    ps = self.PacketString()
-    crc = crc16.crc16(ps, 0, len(ps))
+    crc = usbreceiver.crc16.crc16(self._packet, 0, len(self._packet))
     for x in struct.pack('H', crc):
       self._packet.append(x)
 
   def SetLength(self):
-    self._packet[1] = chr(len(self._packet) + 2)
-
-  def _Add(self, x):
-    try:
-      len(x)
-      for y in x:
-        self._Add(y)
-    except:
-      self._packet.append(x)
+    self._packet[1] = len(self._packet) + 2
 
   def ComposePacket(self, command, payload=None):
     assert self._packet is None
-    self._packet = ["\x01", None, "\x00", chr(command)]
-    if payload:
-      self._Add(payload)
+    self._packet = [1, None, 0, command]
+    if payload is not None:
+      for b in payload:
+        if type(b) is str:
+          for x in b:
+            self._packet.append(ord(x))
+        elif type(b) is bytes:
+          for x in b:
+            self._packet.append(int(x))
+        else:
+          raise Exception('unknown type passed as packet')
     self.AppendCrc()

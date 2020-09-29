@@ -27,7 +27,7 @@
 #
 #########################################################################
 
-import constants
+import usbreceiver.constants
 import datetime
 import os
 import platform
@@ -36,9 +36,11 @@ import re
 import subprocess
 import sys
 
+from usbreceiver import constants
+
 if sys.platform == 'win32':
     import serial.tools.list_ports
-    from _winreg import *
+    #from _winreg import *
 
 
 def ReceiverTimeToTime(rtime):
@@ -92,32 +94,32 @@ def osx_find_usbserial(vendor, product):
                         stdout=subprocess.PIPE,
                         stdin=subprocess.PIPE, stderr=subprocess.PIPE)
   stdout, _ = sp.communicate()
-  plist = plistlib.readPlistFromString(stdout)
+  plist = plistlib.readPlistFromString(stdout.decode())
   return recur(plist)
 
 
 def thisIsWine():
-    if sys.platform == 'win32':
-        try:
-            registry = ConnectRegistry(None, HKEY_LOCAL_MACHINE)
-            if registry is not None:
-                try:
-                    winekey = OpenKey(registry, 'Software\Wine')
-                    if winekey is not None:
-                        return True
-                    else:
-                        return False
-                except Exception as e:
-                    #print 'OpenKey failed. Exception =', e
-                    return False
-            else:
-                return False
-
-        except Exception as f:
-            #print 'ConnectRegistry failed. Exception =', f
-            return False
-    else:
-        return False
+    # if sys.platform == 'win32':
+    #     try:
+    #         registry = ConnectRegistry(None, HKEY_LOCAL_MACHINE)
+    #         if registry is not None:
+    #             try:
+    #                 winekey = OpenKey(registry, 'Software\Wine')
+    #                 if winekey is not None:
+    #                     return True
+    #                 else:
+    #                     return False
+    #             except Exception as e:
+    #                 #print 'OpenKey failed. Exception =', e
+    #                 return False
+    #         else:
+    #             return False
+    #
+    #     except Exception as f:
+    #         #print 'ConnectRegistry failed. Exception =', f
+    #         return False
+    # else:
+    return False
 
 
 def win_find_usbserial(vendor, product):
