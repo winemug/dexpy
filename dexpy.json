@@ -1,0 +1,22 @@
+{
+  "USB_RECEIVER": true,
+  "DEXCOM_SHARE_SERVER": "eu",
+  "DEXCOM_SHARE_USERNAME": "username",
+  "DEXCOM_SHARE_PASSWORD": "password",
+  "MQTT_SERVER": null,
+  "MQTT_PORT": null,
+  "MQTT_SSL": false,
+  "MQTT_CLIENTID": "",
+  "MQTT_TOPIC": "",
+  "INFLUXDB_SERVER": null,
+  "INFLUXDB_PORT": 8086,
+  "INFLUXDB_SSL": true,
+  "INFLUXDB_SSL_VERIFY": true,
+  "INFLUXDB_USERNAME": "",
+  "INFLUXDB_PASSWORD": "",
+  "INFLUXDB_DATABASE": "dexpy",
+  "INFLUXDB_MEASUREMENT": "bg",
+  "NIGHTSCOUT_URL": null,
+  "NIGHTSCOUT_SECRET": null,
+  "NIGHTSCOUT_TOKEN": null
+}

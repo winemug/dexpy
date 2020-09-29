@@ -1,5 +1,4 @@
-#!/bin/bash
-/usr/bin/python2 dexpy.py \
+python3 dexpy.py \
         --DEXCOM-SHARE-SERVER $DEXCOM_SHARE_SERVER \
         --DEXCOM-SHARE-USERNAME $DEXCOM_SHARE_USERNAME \
         --DEXCOM-SHARE-PASSWORD $DEXCOM_SHARE_PASSWORD \

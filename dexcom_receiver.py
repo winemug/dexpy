@@ -10,6 +10,7 @@ from usbreceiver.readdata import Dexcom
 
 class DexcomReceiverSession():
     def __init__(self, callback):
+        self.logger = logging.getLogger('DEXPY')
         self.callback = callback
         self.device = None
         self.timer = None
@@ -34,21 +35,21 @@ class DexcomReceiverSession():
             if self.device is None:
                 port = Dexcom.FindDevice()
                 if port is None:
-                    logging.warning("Dexcom receiver not found")
+                    self.logger.warning("Dexcom receiver not found")
                     return False
                 else:
                     self.device = Dexcom(port)
             self.systemTimeOffset = self.get_device_time_offset()
             return True
         except Exception as e:
-            logging.warning("Error reading from usb device\n" + str(e))
+            self.logger.warning("Error reading from usb device\n" + str(e))
             self.device = None
             self.systemTimeOffset = None
             return False
 
     def setTimer(self, seconds):
         self.timer = threading.Timer(seconds, self.onTimer)
-        logging.debug("timer set to %d seconds" % seconds)
+        self.logger.debug("timer set to %d seconds" % seconds)
         self.timer.start()
 
     def stopMonitoring(self):
@@ -95,7 +96,7 @@ class DexcomReceiverSession():
             self.initialBackfillExecuted = True
             return newValueReceived
         except Exception as e:
-            logging.warning("Error reading from usb device\n" + str(e))
+            self.logger.warning("Error reading from usb device\n" + str(e))
             return False
 
     def get_device_time_offset(self):

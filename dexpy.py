@@ -2,7 +2,7 @@
 import time
 import signal
 
-import json
+import simplejson as json
 import sqlite3
 from queue import Queue, Empty
 
@@ -23,8 +23,8 @@ import requests
 
 class DexPy:
     def __init__(self, args):
-        logging.basicConfig(level=args.LOG_LEVEL)
         self.logger = logging.getLogger('DEXPY')
+
         self.args = args
         self.exit_event = threading.Event()
         self.finish_up_event = threading.Event()
@@ -32,7 +32,7 @@ class DexPy:
 
         self.initialize_db()
         self.mqtt_client = None
-        if args.MQTT_SERVER:
+        if args.MQTT_SERVER is not None:
             self.mqtt_client = mqttc.Client(client_id=args.MQTT_CLIENTID, clean_session=True, protocol=MQTTv311,
                                       transport="tcp")
 
@@ -48,9 +48,10 @@ class DexPy:
             self.mqtt_client.on_publish = self.on_mqtt_message_publish
 
         self.influx_client = None
-        if args.INFLUXDB_SERVER:
+        if args.INFLUXDB_SERVER is not None:
             self.influx_client = InfluxDBClient(args.INFLUXDB_SERVER, args.INFLUXDB_PORT, args.INFLUXDB_USERNAME,
-                                          args.INFLUXDB_PASSWORD, args.INFLUXDB_DATABASE, ssl=args.INFLUXDB_SSL)
+                                          args.INFLUXDB_PASSWORD, args.INFLUXDB_DATABASE,
+                                                ssl = args.INFLUXDB_SSL, verify_ssl=args.INFLUXDB_SSL_VERIFY)
 
         self.callback_queue = Queue()
         self.glucose_values = []
@@ -58,36 +59,37 @@ class DexPy:
         self.influx_pending = []
         self.ns_pending = []
 
-        if args.NIGHTSCOUT_URL:
+        if args.NIGHTSCOUT_URL  is not None:
             self.ns_session = requests.Session()
 
         self.dexcom_share_session = None
-        if args.DEXCOM_SHARE_SERVER:
-            logging.info("starting dexcom share session")
+        if args.DEXCOM_SHARE_SERVER  is not None:
+            self.logger.info("starting dexcom share session")
             self.dexcom_share_session = DexcomShareSession(args.DEXCOM_SHARE_SERVER, \
                                                     args.DEXCOM_SHARE_USERNAME, \
                                                     args.DEXCOM_SHARE_PASSWORD, \
                                                     self.glucoseValueCallback)
 
-        self.dexcom_receiver_session = None
+        if args.USB_RECEIVER is not None:
+            self.dexcom_receiver_session = DexcomReceiverSession(self.glucoseValueCallback)
 
-        for sig in ('TERM', 'HUP', 'INT'):
+        for sig in ('HUP', 'INT'):
             signal.signal(getattr(signal, 'SIG' + sig), lambda _0, _1: self.exit_event.set())
 
     def run(self):
         if self.mqtt_client is not None:
-            logging.info("starting mqtt service connection")
+            self.logger.info("starting mqtt service connection")
             self.mqtt_client.reconnect_delay_set(min_delay=15, max_delay=120)
             self.mqtt_client.connect_async(args.MQTT_SERVER, port=args.MQTT_PORT, keepalive=60)
             self.mqtt_client.retry_first_connection = True
             self.mqtt_client.loop_start()
 
         if self.dexcom_share_session is not None:
-            logging.info("starting monitoring dexcom share server")
+            self.logger.info("starting monitoring dexcom share server")
             self.dexcom_share_session.startMonitoring()
 
         if self.dexcom_receiver_session is not None:
-            logging.info("starting usb receiver service")
+            self.logger.info("starting usb receiver service")
             self.dexcom_receiver_session.startMonitoring()
 
         queue_thread = threading.Thread(target=self.queueHandlerLoop)
@@ -101,44 +103,44 @@ class DexPy:
 
         self.exit_event.clear()
         if self.dexcom_receiver_session is not None:
-            logging.info("stopping dexcom receiver service")
+            self.logger.info("stopping dexcom receiver service")
             self.dexcom_receiver_session.stopMonitoring()
 
         if self.dexcom_share_session is not None:
-            logging.info("stopping listening on dexcom share server")
+            self.logger.info("stopping listening on dexcom share server")
             self.dexcom_share_session.stopMonitoring()
 
         if self.mqtt_client is not None:
-            logging.info("stopping mqtt client")
+            self.logger.info("stopping mqtt client")
             self.mqtt_client.loop_stop()
             self.mqtt_client.disconnect()
 
         if self.influx_client is not None:
-            logging.info("closing influxdb client")
+            self.logger.info("closing influxdb client")
             self.influx_client.close()
 
         if self.ns_session is not None:
-            logging.info("closing nightscout session")
+            self.logger.info("closing nightscout session")
             self.ns_session.close()
 
     def on_mqtt_connect(self, client, userdata, flags, rc):
-        logging.info("Connected to mqtt server with result code " + str(rc))
-        logging.debug("Pending %d messages in local queue" % len(self.mqtt_pending))
+        self.logger.info("Connected to mqtt server with result code " + str(rc))
+        self.logger.debug("Pending %d messages in local queue" % len(self.mqtt_pending))
 
     def on_mqtt_disconnect(self, client, userdata, rc):
-        logging.info("Disconnected from mqtt with result code " + str(rc))
-        logging.debug("Pending %d messages in local queue" % len(self.mqtt_pending))
+        self.logger.info("Disconnected from mqtt with result code " + str(rc))
+        self.logger.debug("Pending %d messages in local queue" % len(self.mqtt_pending))
 
     def on_mqtt_message_receive(self, client, userdata, msg):
-        logging.info("mqtt message received: " + msg)
+        self.logger.info("mqtt message received: " + msg)
 
     def on_mqtt_message_publish(self, client, userdata, msg_id):
-        logging.info("mqtt message published: " + str(msg_id))
+        self.logger.info("mqtt message published: " + str(msg_id))
         if msg_id in self.mqtt_pending:
             self.mqtt_pending.pop(msg_id)
         else:
-            logging.debug("unknown message id: " + str(msg_id))
-        logging.debug("Pending %d messages in local queue" % len(self.mqtt_pending))
+            self.logger.debug("unknown message id: " + str(msg_id))
+        self.logger.debug("Pending %d messages in local queue" % len(self.mqtt_pending))
 
     def glucoseValueCallback(self, gv):
         self.callback_queue.put(gv)
@@ -160,56 +162,53 @@ class DexPy:
                 break
 
     def processGlucoseValue(self, gv):
-        logging.debug("Processing glucose value: %s" % gv)
-        shouldRetain = False
+        self.logger.debug("Processing glucose value: %s" % gv)
+        last_gv = False
 
         i = bisect.bisect_right(self.glucose_values, gv)
         if i > 0 and self.glucose_values[i - 1] == gv:
-            logging.debug("Received value is a duplicate, skipping.")
+            self.logger.debug("Received value is a duplicate, skipping.")
             return
         elif i == len(self.glucose_values):
             self.glucose_values.append(gv)
-            shouldRetain = True
+            last_gv = True
         else:
-            newList = self.glucose_values[0:i]
-            newList.append(gv)
-            newList.extend(self.glucose_values[i:])
-            self.glucose_values = newList
+            self.glucose_values.insert(i+1, gv)
 
         if len(self.glucose_values) > 200:
             cutoff_ts = time.time() - 3 * 60 * 60
-            cutoff_gv = GlucoseValue(None, None, cutoff_ts, 0, 0)
             i_cutoff = bisect.bisect_left(self.glucose_values, cutoff_ts)
             if i_cutoff:
                 self.glucose_values = self.glucose_values[i_cutoff:]
             else:
                 self.glucose_values = []
+
         if self.mqtt_client is not None:
             msg = "%d|%s|%s" % (gv.st, gv.trend, gv.value)
-            x, mid = self.mqtt_client.publish(args.MQTT_TOPIC, payload=msg, retain=shouldRetain, qos=2)
+            x, mid = self.mqtt_client.publish(args.MQTT_TOPIC, payload=msg, retain=last_gv, qos=1)
             self.mqtt_pending[mid] = gv
-            logging.debug("publish to mqtt requested with message id: " + str(mid))
+            self.logger.debug("publish to mqtt requested with message id: " + str(mid))
 
         if self.influx_client is not None:
             point = {
-                "measurement": "measurements",
-                "tags": {"device": "dexcomg6", "source": "dexpy", "unit": "mg/dL"},
+                "measurement": self.args.INFLUXDB_MEASUREMENT,
+                "tags": {"source": "dexpy"},
                 "time": dt.datetime.utcfromtimestamp(gv.st).strftime("%Y-%m-%dT%H:%M:%SZ"),
                 "fields": {"cbg": float(gv.value), "direction": int(gv.trend)}
             }
             self.influx_pending.append(point)
             try:
-                self.influx_client.write_points(self.pendingInfluxPoints)
-                self.influx_pending = []
-            except:
-                logging.error("Error writing to influxdb")
+                if self.influx_client.write_points(self.influx_pending):
+                    self.influx_pending = []
+            except Exception as ex:
+                self.logger.error("Error writing to influxdb", exc_info=ex)
 
         if self.ns_session is not None:
             apiUrl = args.NIGHTSCOUT_URL
             if apiUrl[-1] != "/":
                 apiUrl += "/"
             apiUrl += "api/v1/entries/"
-            payload = {"sgv": gv.value, "type": "sgv", "direction": gv.trendString, "date": gv.st * 1000}
+            payload = {"sgv": gv.value, "type": "sgv", "direction": gv.trendAsString(), "date": gv.st * 1000}
             headers = {"Content-Type": "application/json"}
             if args.NIGHTSCOUT_SECRET:
                 headers["api-secret"] = args.NIGHTSCOUT_SECRET
@@ -222,7 +221,7 @@ class DexPy:
                     self.ns_session.post(apiUrl, headers=headers, data=pendingEntry)
                     self.ns_pending.remove(pendingEntry)
             except:
-                logging.error("Error writing to nightscout")
+                self.logger.error("Error writing to nightscout")
                 return
 
     def initialize_db(self):
@@ -244,9 +243,18 @@ class DexPy:
             pass
 
 
-
 if __name__ == '__main__':
+    logger = logging.getLogger('DEXPY')
+    logger.setLevel(logging.DEBUG)
+    formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+
+    ch = logging.StreamHandler()
+    ch.setLevel(logging.DEBUG)
+    ch.setFormatter(formatter)
+    logger.addHandler(ch)
+
     parser = argparse.ArgumentParser()
+    parser.add_argument("--CONFIGURATION", required=False, default=None, nargs="?")
     parser.add_argument("--DEXCOM-SHARE-SERVER", required=False, default=None, nargs="?")
     parser.add_argument("--DEXCOM-SHARE-USERNAME", required=False, default="", nargs="?")
     parser.add_argument("--DEXCOM-SHARE-PASSWORD", required=False, default="", nargs="?")
@@ -257,13 +265,26 @@ if __name__ == '__main__':
     parser.add_argument("--MQTT-TOPIC", required=False, default="cgm", nargs="?")
     parser.add_argument("--INFLUXDB-SERVER", required=False, default=None, nargs="?")
     parser.add_argument("--INFLUXDB-PORT", required=False, default="8086", nargs="?")
-    parser.add_argument("--INFLUXDB-SSL", required=False, default="", nargs="?")
+    parser.add_argument("--INFLUXDB-SSL", required=False, default=False, nargs="?")
+    parser.add_argument("--INFLUXDB-SSL-VERIFY", required=False, default=False, nargs="?")
     parser.add_argument("--INFLUXDB-USERNAME", required=False, default="", nargs="?")
     parser.add_argument("--INFLUXDB-PASSWORD", required=False, default="", nargs="?")
     parser.add_argument("--INFLUXDB-DATABASE", required=False, default="", nargs="?")
+    parser.add_argument("--INFLUXDB-MEASUREMENT", required=False, default="", nargs="?")
     parser.add_argument("--NIGHTSCOUT-URL", required=False, default=None, nargs="?")
     parser.add_argument("--NIGHTSCOUT-SECRET", required=False, default=None, nargs="?")
     parser.add_argument("--NIGHTSCOUT-TOKEN", required=False, default=None, nargs="?")
-    parser.add_argument("--LOG-LEVEL", required=False, default="INFO", nargs="?")
     parser.add_argument("--DB-PATH", required=False, default="dexpy.db", nargs="?")
+    parser.add_argument("--USB-RECEIVER", required=False, default=True, nargs="?")
     args = parser.parse_args()
+
+    if args.CONFIGURATION is not None:
+        with open(args.CONFIGURATION, 'r') as stream:
+            js = json.load(stream)
+
+        for js_arg in js:
+            args.__dict__[js_arg] = js[js_arg]
+
+    dexpy = DexPy(args)
+    dexpy.run()
+
