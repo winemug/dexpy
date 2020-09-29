@@ -1,6 +1,9 @@
 #!/bin/bash
-apt install -y udev python3
-python3 -m pip install -r requirements.txt --upgrade
+apt update
+apt install -y udev python3 python3-pip python3-venv
+python3 -m venv venv
+./venv/bin/python3 -m pip install pip setuptools --upgrade
+./venv/bin/python3 -m pip install -r requirements.txt --upgrade
 mkdir -p /etc/udev/rules.d
 cp 80-dexcom.rules /etc/udev/rules.d/
 echo "
@@ -9,8 +12,7 @@ Description=Dexpy
 After=network.target
 
 [Service]
-EnvironmentFile=-$(pwd)/dexpy.env
-ExecStart=$(pwd)/dexpy-start.sh
+ExecStart=$(pwd)/venv/bin/python3 dexpy.py --CONFIGURATION dexpy.json
 WorkingDirectory=$(pwd)
 StandardOutput=inherit
 StandardError=inherit
@@ -21,6 +23,5 @@ User=$(logname)
 [Install]
 WantedBy=multi-user.target" > dexpy.service
 cp dexpy.service /etc/systemd/system/
-chmod 755 dexpy-start.sh
 systemctl enable dexpy.service
 systemctl start dexpy.service
