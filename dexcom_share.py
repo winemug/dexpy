@@ -76,12 +76,12 @@ class DexcomShareSession():
 
         time_since = time.time() - gv.st
         g6_phase = time_since % 300
-        if time_since <= 310:
-            return 310 - time_since
-        elif g6_phase < 60:
+        if time_since < 330:
+            return 330 - time_since
+        elif g6_phase < 90:
             return 15
         else:
-            return 310 - g6_phase
+            return 330 - g6_phase
 
     def backfill(self):
         cut_off = time.time() - 3 * 60 * 60 - 5 * 60
