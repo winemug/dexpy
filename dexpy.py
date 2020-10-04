@@ -207,12 +207,18 @@ class DexPy:
             for gv in new_values:
                 payload = {"sgv": gv.value, "type": "sgv", "direction": gv.trendAsString(), "date": gv.st * 1000}
                 self.ns_pending.append(json.dumps(payload))
-            try:
+                posted_entries = []
                 for pendingEntry in self.ns_pending:
-                    self.ns_session.post(apiUrl, headers=headers, data=pendingEntry)
-                    self.ns_pending.remove(pendingEntry)
-            except:
-                self.logger.error("Error writing to nightscout")
+                    try:
+                        response = self.ns_session.post(apiUrl, headers=headers, data=pendingEntry)
+                        if response is not None and response.status_code == 200:
+                            posted_entries.append(pendingEntry)
+                        else:
+                            self.logger.error(f"NS server returned invalid response {response}")
+                    except Exception as ex:
+                        self.logger.error("Error posting value to nightscout", ex)
+                for posted_entry in posted_entries:
+                    self.ns_pending.remove(posted_entry)
 
         for gv in new_values:
             i = bisect.bisect_right(self.glucose_values, gv)
