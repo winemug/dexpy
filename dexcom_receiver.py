@@ -49,6 +49,7 @@ class DexcomReceiverSession():
 
     def setTimer(self, seconds):
         self.timer = threading.Timer(seconds, self.onTimer)
+        self.timer.setDaemon(True)
         self.logger.debug("timer set to %d seconds" % seconds)
         self.timer.start()
 
@@ -73,7 +74,7 @@ class DexcomReceiverSession():
                     if self.lastGVReceived is None or self.lastGVReceived.st != gv.st:
                         self.lastGVReceived = gv
                         newValueReceived = True
-                    self.callback(gv)
+                    self.callback([gv])
                     break
 
             if newValueReceived:
@@ -81,7 +82,7 @@ class DexcomReceiverSession():
                     if not rec.display_only:
                         gv = self.recordToGV(rec)
                         if gv.st >= ts_cut_off:
-                            self.callback(gv)
+                            self.callback([gv])
                         else:
                             break
 
@@ -89,7 +90,7 @@ class DexcomReceiverSession():
                     if not rec.display_only:
                         gv = self.recordToGV(rec)
                         if gv.st >= ts_cut_off:
-                            self.callback(gv)
+                            self.callback([gv])
                         else:
                             break
 

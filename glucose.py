@@ -23,7 +23,7 @@ class GlucoseValue():
         return NightscoutTrendStrings[self.trend]
 
     @staticmethod
-    def fromJson(jsonResponse, timeoffset):
+    def fromJson(jsonResponse, timeoffset=0):
         dt = parseDateTime(jsonResponse["DT"]) + timeoffset
         wt = parseDateTime(jsonResponse["WT"]) + timeoffset
         st = parseDateTime(jsonResponse["ST"]) + timeoffset
