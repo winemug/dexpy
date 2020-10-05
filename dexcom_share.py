@@ -123,11 +123,18 @@ class DexcomShareSession():
             self.logger.error(e)
 
         if result is None or result.status_code != 200:
-            self.dexcom_session_id = None
+            self.recreate_session()
             self.logger.error("Login failed")
         else:
             self.dexcom_session_id = result.text[1:-1]
             self.logger.info("Login successful, session id: %s" % self.dexcom_session_id)
+
+    def recreate_session(self):
+        try:
+            self.session.close()
+        except:
+            pass
+        self.session = requests.Session()
 
     def get_gvs(self, minutes, maxCount):
         url = "https://%s/ShareWebServices/Services/Publisher/ReadPublisherLatestGlucoseValues" % self.address
@@ -139,12 +146,14 @@ class DexcomShareSession():
             result = self.session.post(url, headers=headers)
         except Exception as ex:
             self.logger.error(ex)
+
         gvs = []
         if result is not None and result.status_code == 200:
             for jsonResult in result.json():
                 gvs.append(GlucoseValue.fromJson(jsonResult))
             return gvs
         else:
+            self.recreate_session()
             return None
 
     def get_last_gv(self):
