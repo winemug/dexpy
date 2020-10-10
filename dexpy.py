@@ -19,6 +19,8 @@ import logging
 import bisect
 from glucose import GlucoseValue
 import requests
+import os
+import distro
 
 
 class DexPy:
@@ -225,7 +227,7 @@ class DexPy:
             self.glucose_values.insert(i + 1, gv)
 
         if len(self.glucose_values) > 4096:
-            self.glucose_values = self.glucose_values[4096-len(self.glucose_values):]
+            self.glucose_values = self.glucose_values[4096 - len(self.glucose_values):]
 
     def initialize_db(self):
         try:
@@ -244,6 +246,30 @@ class DexPy:
                     pass
         except Exception as e:
             pass
+
+
+def ntp_update():
+    try:
+        dstr: str = distro.linux_distribution()[0]
+        if dstr.startswith('Raspbian'):
+            logging.info('Perfoming ntp update on raspbian')
+            logging.info('Stopping ntp service')
+            os.system('sudo systemctl stop ntp')
+            try:
+                logging.info('Forcing manual update')
+                exit_code = os.system('sudo ntpd -gq')
+            except:
+                raise
+            finally:
+                logging.info('Starting ntp service')
+                os.system('sudo systemctl start ntp')
+            if exit_code != 0:
+                raise Exception(f'ntpd reported failure, exit code: {exit_code}')
+            logging.info('Updated system time')
+        else:
+            logging.info(f'skipping ntp update, distribution is not Raspbian. Detected {dstr}')
+    except Exception as ex:
+        logging.error("Error updating system time", ex)
 
 
 if __name__ == '__main__':
@@ -288,5 +314,6 @@ if __name__ == '__main__':
         for js_arg in js:
             args.__dict__[js_arg] = js[js_arg]
 
+    ntp_update()
     dexpy = DexPy(args)
     dexpy.run()
