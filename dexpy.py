@@ -17,23 +17,24 @@ from paho.mqtt.client import MQTTv311
 
 from dexcom_receiver import DexcomReceiverSession
 from dexcom_share import DexcomShareSession
-
+import os
+import distro
 
 class DexPy:
-    def __init__(self, console_args):
+    def __init__(self, args):
         self.logger = logging.getLogger('DEXPY')
 
-        self.args = console_args
+        self.args = args
         self.exit_event = threading.Event()
         self.message_published_event = threading.Event()
 
         self.initialize_db()
         self.mqtt_client = None
-        if self.args.MQTT_SERVER is not None:
-            self.mqtt_client = mqttc.Client(client_id=self.args.MQTT_CLIENTID, clean_session=True, protocol=MQTTv311,
+        if args.MQTT_SERVER is not None:
+            self.mqtt_client = mqttc.Client(client_id=args.MQTT_CLIENTID, clean_session=True, protocol=MQTTv311,
                                             transport="tcp")
 
-            if self.args.MQTT_SSL != "":
+            if args.MQTT_SSL != "":
                 self.mqtt_client.tls_set(certfile=None,
                                          keyfile=None, cert_reqs=ssl.CERT_REQUIRED,
                                          tls_version=ssl.PROTOCOL_TLSv1_2, ciphers=None)
@@ -70,7 +71,7 @@ class DexPy:
 
         self.dexcom_receiver_session = None
         if self.args.USB_RECEIVER is not None and self.args.USB_RECEIVER:
-            self.dexcom_receiver_session = DexcomReceiverSession(self.glucose_values_received)
+            self.dexcom_receiver_session = DexcomReceiverSession(self.glucose_values_received, self.args.USB_RESET_COMMAND)
 
         for sig in ('HUP', 'INT'):
             signal.signal(getattr(signal, 'SIG' + sig), lambda _0, _1: self.exit_event.set())
