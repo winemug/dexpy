@@ -17,6 +17,7 @@ class DexcomReceiverSession():
         self.lock = threading.RLock()
         self.initial_backfill_executed = False
         self.last_gv = None
+        self.system_time_offset = None
 
     def start_monitoring(self):
         self.on_timer()
@@ -39,12 +40,12 @@ class DexcomReceiverSession():
                     return False
                 else:
                     self.device = Dexcom(port)
-            self.systemTimeOffset = self.get_device_time_offset()
+            self.system_time_offset = self.get_device_time_offset()
             return True
         except Exception as e:
             self.logger.warning("Error reading from usb device\n" + str(e))
             self.device = None
-            self.systemTimeOffset = None
+            self.system_time_offset = None
             return False
 
     def set_timer(self, seconds):
@@ -106,7 +107,7 @@ class DexcomReceiverSession():
         return now_time - device_time
 
     def _as_gv(self, record):
-        st = record.meter_time + self.systemTimeOffset
+        st = record.meter_time + self.system_time_offset
         direction = record.full_trend & constants.EGV_TREND_ARROW_MASK
         return GlucoseValue(None, None, st, record.glucose, direction)
         
