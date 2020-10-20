@@ -182,7 +182,7 @@ class DexPy:
             for gv in new_values:
                 point = {
                     "measurement": self.args.INFLUXDB_MEASUREMENT,
-                    "tags": {"source": "dexpy"},
+                    "tags": {"device": "dexcomg6", "source": "dexpy"},
                     "time": dt.datetime.utcfromtimestamp(gv.st).strftime("%Y-%m-%dT%H:%M:%SZ"),
                     "fields": {"cbg": float(gv.value), "direction": int(gv.trend)}
                 }
