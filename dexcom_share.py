@@ -31,7 +31,7 @@ class DexcomShareSession():
 
         self.lock = threading.RLock()
         self.timer = None
-        self.initialBackfillExecuted = False
+        self.initial_backfill_executed = False
         self.gvs = []
 
     def start_monitoring(self):
@@ -87,10 +87,10 @@ class DexcomShareSession():
         cut_off = time.time() - 3 * 60 * 60 - 5 * 60
         self.gvs = [gv for gv in self.gvs if gv.st > cut_off]
 
-        if self.initialBackfillExecuted and len(self.gvs) >= 36:
+        if self.initial_backfill_executed and len(self.gvs) >= 36:
             return
 
-        if self.initialBackfillExecuted:
+        if self.initial_backfill_executed:
             self.logger.info("Missing measurements within the last 3 hours, attempting to backfill..")
             gvs = self.get_gvs(180, 40)
         else:
@@ -101,7 +101,7 @@ class DexcomShareSession():
             self.logger.warning("No data received")
             return
 
-        self.initialBackfillExecuted = True
+        self.initial_backfill_executed = True
         self.logger.debug("Received %d glucose values from history" % len(gvs))
         self.callback(gvs)
         self.gvs = gvs
@@ -150,7 +150,7 @@ class DexcomShareSession():
         gvs = []
         if result is not None and result.status_code == 200:
             for jsonResult in result.json():
-                gvs.append(GlucoseValue.fromJson(jsonResult))
+                gvs.append(GlucoseValue.from_json(jsonResult))
             return gvs
         else:
             self.recreate_session()

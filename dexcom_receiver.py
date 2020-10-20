@@ -15,22 +15,22 @@ class DexcomReceiverSession():
         self.device = None
         self.timer = None
         self.lock = threading.RLock()
-        self.initialBackfillExecuted = False
+        self.initial_backfill_executed = False
+        self.last_gv = None
 
-    def startMonitoring(self):
-        self.lastGVReceived = None
-        self.onTimer()
+    def start_monitoring(self):
+        self.on_timer()
 
-    def onTimer(self):
+    def on_timer(self):
         with self.lock:
-            if not self.ensureUsbConnected():
-                self.setTimer(15)
-            elif self.readGlucoseValues():
-                self.setTimer(30)
+            if not self.ensure_connected():
+                self.set_timer(15)
+            elif self.read_glucose_values():
+                self.set_timer(30)
             else:
-                self.setTimer(10)
+                self.set_timer(10)
 
-    def ensureUsbConnected(self):
+    def ensure_connected(self):
         try:
             if self.device is None:
                 port = Dexcom.FindDevice()
@@ -47,40 +47,40 @@ class DexcomReceiverSession():
             self.systemTimeOffset = None
             return False
 
-    def setTimer(self, seconds):
-        self.timer = threading.Timer(seconds, self.onTimer)
+    def set_timer(self, seconds):
+        self.timer = threading.Timer(seconds, self.on_timer)
         self.timer.setDaemon(True)
         self.logger.debug("timer set to %d seconds" % seconds)
         self.timer.start()
 
-    def stopMonitoring(self):
+    def stop_monitoring(self):
         with self.lock:
             self.timer.cancel()
 
-    def readGlucoseValues(self, ts_cut_off: float = None):
+    def read_glucose_values(self, ts_cut_off: float = None):
         try:
             if ts_cut_off is None:
-                if self.initialBackfillExecuted:
+                if self.initial_backfill_executed:
                     ts_cut_off = time.time() - 3 * 60 * 60
                 else:
                     ts_cut_off = time.time() - 24 * 60 * 60
 
             records = self.device.iter_records('EGV_DATA')
-            newValueReceived = False
+            new_value_received = False
 
             for rec in records:
                 if not rec.display_only:
-                    gv = self.recordToGV(rec)
-                    if self.lastGVReceived is None or self.lastGVReceived.st != gv.st:
-                        self.lastGVReceived = gv
-                        newValueReceived = True
+                    gv = self._as_gv(rec)
+                    if self.last_gv is None or self.last_gv.st != gv.st:
+                        self.last_gv = gv
+                        new_value_received = True
                     self.callback([gv])
                     break
 
-            if newValueReceived:
+            if new_value_received:
                 for rec in records:
                     if not rec.display_only:
-                        gv = self.recordToGV(rec)
+                        gv = self._as_gv(rec)
                         if gv.st >= ts_cut_off:
                             self.callback([gv])
                         else:
@@ -88,14 +88,14 @@ class DexcomReceiverSession():
 
                 for rec in self.device.iter_records('BACKFILLED_EGV'):
                     if not rec.display_only:
-                        gv = self.recordToGV(rec)
+                        gv = self._as_gv(rec)
                         if gv.st >= ts_cut_off:
                             self.callback([gv])
                         else:
                             break
 
-            self.initialBackfillExecuted = True
-            return newValueReceived
+            self.initial_backfill_executed = True
+            return new_value_received
         except Exception as e:
             self.logger.warning("Error reading from usb device\n" + str(e))
             return False
@@ -105,14 +105,7 @@ class DexcomReceiverSession():
         device_time = self.device.ReadSystemTime()
         return now_time - device_time
 
-    def getUtcOffsetForSystemTime(self):
-        deviceTime = self.device.ReadSystemTime()
-        utcTime = datetime.utcnow()
-        diffSeconds = (utcTime - deviceTime).total_seconds()
-        #roundedDifference = int(round(diffSeconds / 1800)*1800)
-        return timedelta(seconds = diffSeconds)
-
-    def recordToGV(self, record):
+    def _as_gv(self, record):
         st = record.meter_time + self.systemTimeOffset
         direction = record.full_trend & constants.EGV_TREND_ARROW_MASK
         return GlucoseValue(None, None, st, record.glucose, direction)

@@ -1,24 +1,22 @@
 #!/usr/bin/python3
-import time
+import argparse
+import bisect
+import datetime as dt
+import logging
 import signal
-
-import simplejson as json
 import sqlite3
+import ssl
+import threading
 from queue import Queue, Empty
 
 import paho.mqtt.client as mqttc
-from paho.mqtt.client import MQTTv311
-from influxdb import InfluxDBClient
-import argparse
-import threading
-import ssl
-import datetime as dt
-from dexcom_share import DexcomShareSession
-from dexcom_receiver import DexcomReceiverSession
-import logging
-import bisect
-from glucose import GlucoseValue
 import requests
+import simplejson as json
+from influxdb import InfluxDBClient
+from paho.mqtt.client import MQTTv311
+
+from dexcom_receiver import DexcomReceiverSession
+from dexcom_share import DexcomShareSession
 
 
 class DexPy:
@@ -68,11 +66,11 @@ class DexPy:
             self.dexcom_share_session = DexcomShareSession(args.DEXCOM_SHARE_SERVER,
                                                            args.DEXCOM_SHARE_USERNAME,
                                                            args.DEXCOM_SHARE_PASSWORD,
-                                                           self.glucoseValueCallback)
+                                                           self.glucose_values_received)
 
         self.dexcom_receiver_session = None
         if args.USB_RECEIVER is not None and args.USB_RECEIVER:
-            self.dexcom_receiver_session = DexcomReceiverSession(self.glucoseValueCallback)
+            self.dexcom_receiver_session = DexcomReceiverSession(self.glucose_values_received)
 
         for sig in ('HUP', 'INT'):
             signal.signal(getattr(signal, 'SIG' + sig), lambda _0, _1: self.exit_event.set())
@@ -91,9 +89,9 @@ class DexPy:
 
         if self.dexcom_receiver_session is not None:
             self.logger.info("starting usb receiver service")
-            self.dexcom_receiver_session.startMonitoring()
+            self.dexcom_receiver_session.start_monitoring()
 
-        queue_thread = threading.Thread(target=self.queueHandlerLoop)
+        queue_thread = threading.Thread(target=self.queue_handler)
         queue_thread.start()
 
         try:
@@ -105,7 +103,7 @@ class DexPy:
         self.exit_event.clear()
         if self.dexcom_receiver_session is not None:
             self.logger.info("stopping dexcom receiver service")
-            self.dexcom_receiver_session.stopMonitoring()
+            self.dexcom_receiver_session.stop_monitoring()
 
         if self.dexcom_share_session is not None:
             self.logger.info("stopping listening on dexcom share server")
@@ -143,11 +141,11 @@ class DexPy:
             self.logger.debug("unknown message id: " + str(msg_id))
         self.logger.debug("Pending %d messages in local queue" % len(self.mqtt_pending))
 
-    def glucoseValueCallback(self, gvs):
+    def glucose_values_received(self, gvs):
         for gv in gvs:
             self.callback_queue.put(gv)
 
-    def queueHandlerLoop(self):
+    def queue_handler(self):
         while not self.exit_event.wait(timeout=0.200):
             gvs = []
             while True:
@@ -156,10 +154,10 @@ class DexPy:
                     gvs.append(gv)
                 except Empty:
                     if len(gvs) > 0:
-                        self.processGlucoseValues(gvs)
+                        self.process_glucose_values(gvs)
                         gvs = []
 
-    def processGlucoseValues(self, gvs):
+    def process_glucose_values(self, gvs):
         new_values = []
         for gv in gvs:
             new_val = True
@@ -205,7 +203,7 @@ class DexPy:
                 apiUrl += "?token=" + args.NIGHTSCOUT_TOKEN
 
             for gv in new_values:
-                payload = {"sgv": gv.value, "type": "sgv", "direction": gv.trendAsString(), "date": gv.st * 1000}
+                payload = {"sgv": gv.value, "type": "sgv", "direction": gv.trend_string(), "date": gv.st * 1000}
                 self.ns_pending.append(json.dumps(payload))
                 posted_entries = []
                 for pendingEntry in self.ns_pending:
@@ -225,7 +223,7 @@ class DexPy:
             self.glucose_values.insert(i + 1, gv)
 
         if len(self.glucose_values) > 4096:
-            self.glucose_values = self.glucose_values[4096-len(self.glucose_values):]
+            self.glucose_values = self.glucose_values[4096 - len(self.glucose_values):]
 
     def initialize_db(self):
         try:

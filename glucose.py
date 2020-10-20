@@ -1,10 +1,10 @@
-import datetime
 import logging
 import re
 
 NightscoutTrendStrings = ['None', 'DoubleUp', 'SingleUp', 'FortyFiveUp', 'Flat', 'FortyFiveDown', 'SingleDown', 'DoubleDown', 'NotComputable', 'OutOfRange']
 
-def parseDateTime(val):
+
+def _as_ts(val):
     res = re.search("Date\\((\\d*)", val)
     return float(res.group(1)) / 1000
 
@@ -12,21 +12,20 @@ def parseDateTime(val):
 class GlucoseValue():
     def __init__(self, dt, wt, st, value, trend):
         self.logger = logging.getLogger('DEXPY')
-
         self.dt = dt
         self.wt = wt
         self.st = st
         self.value = value
         self.trend = trend
 
-    def trendAsString(self):
+    def trend_string(self):
         return NightscoutTrendStrings[self.trend]
 
     @staticmethod
-    def fromJson(jsonResponse, timeoffset=0):
-        dt = parseDateTime(jsonResponse["DT"]) + timeoffset
-        wt = parseDateTime(jsonResponse["WT"]) + timeoffset
-        st = parseDateTime(jsonResponse["ST"]) + timeoffset
+    def from_json(jsonResponse, timeoffset=0):
+        dt = _as_ts(jsonResponse["DT"]) + timeoffset
+        wt = _as_ts(jsonResponse["WT"]) + timeoffset
+        st = _as_ts(jsonResponse["ST"]) + timeoffset
         value = float(jsonResponse["Value"])
         trend = int(jsonResponse["Trend"])
         return GlucoseValue(dt, wt, st, value, trend)
@@ -57,8 +56,8 @@ class GlucoseValue():
         return int(round(self.value)) == int(round(other.value))
 
     def equals(self, other):
-        secondDifference = abs((self.st - other.st))
-        if secondDifference >= 240:
+        seconds_difference = abs((self.st - other.st))
+        if seconds_difference >= 240:
             return False
         if self.trend != other.trend:
             return False
@@ -68,4 +67,4 @@ class GlucoseValue():
         return True
 
     def __str__(self):
-        return "DT: %s WT: %s ST: %s Trend: %s Value: %f" % (self.dt, self.wt, self.st, self.trendAsString(), self.value)
+        return "DT: %s WT: %s ST: %s Trend: %s Value: %f" % (self.dt, self.wt, self.st, self.trend_string(), self.value)
