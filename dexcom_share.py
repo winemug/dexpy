@@ -1,10 +1,7 @@
 import logging
-import bisect
-import datetime
 import threading
 import requests
 import json
-import xml.etree.ElementTree as ET
 from glucose import GlucoseValue
 import time
 
@@ -132,8 +129,8 @@ class DexcomShareSession():
     def recreate_session(self):
         try:
             self.session.close()
-        except:
-            pass
+        except Exception as ex:
+            self.logger.warning("Error while closing session", exc_info=ex)
         self.session = requests.Session()
 
     def get_gvs(self, minutes, maxCount):
@@ -145,7 +142,7 @@ class DexcomShareSession():
         try:
             result = self.session.post(url, headers=headers)
         except Exception as ex:
-            self.logger.error(ex)
+            self.logger.error(exc_info=ex)
 
         gvs = []
         if result is not None and result.status_code == 200:

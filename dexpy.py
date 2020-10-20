@@ -239,9 +239,10 @@ class DexPy:
                 try:
                     conn.execute(sql)
                 except:
-                    pass
-        except Exception as e:
-            pass
+                    self.logger.debug("Index creation skipped")
+
+        except Exception as ex:
+            self.logger.warning("Error initializing local db", exc_info=ex)
 
 
 if __name__ == '__main__':

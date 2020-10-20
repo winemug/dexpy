@@ -1,5 +1,4 @@
 import time
-from datetime import datetime, timedelta
 from glucose import GlucoseValue
 import threading
 import logging
