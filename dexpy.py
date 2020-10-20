@@ -279,6 +279,8 @@ if __name__ == '__main__':
     parser.add_argument("--NIGHTSCOUT-TOKEN", required=False, default=None, nargs="?")
     parser.add_argument("--DB-PATH", required=False, default="dexpy.db", nargs="?")
     parser.add_argument("--USB-RECEIVER", required=False, default=True, nargs="?")
+    parser.add_argument("--USB-RESET-COMMAND", required=False, default=None, nargs="?")
+
     args = parser.parse_args()
 
     if args.CONFIGURATION is not None:
