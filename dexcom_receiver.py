@@ -1,3 +1,4 @@
+import os
 import time
 from datetime import datetime, timedelta
 from glucose import GlucoseValue
@@ -9,16 +10,18 @@ from usbreceiver.readdata import Dexcom
 
 
 class DexcomReceiverSession():
-    def __init__(self, callback):
+    def __init__(self, callback, usb_reset_cmd = None):
         self.logger = logging.getLogger('DEXPY')
         self.callback = callback
         self.device = None
         self.timer = None
         self.lock = threading.RLock()
         self.initialBackfillExecuted = False
+        self.lastGVReceived = None
+        self.usb_reset_cmd = usb_reset_cmd
+        self.ts_usb_reset = time.time() + 360
 
     def startMonitoring(self):
-        self.lastGVReceived = None
         self.onTimer()
 
     def onTimer(self):
@@ -26,8 +29,16 @@ class DexcomReceiverSession():
             if not self.ensureUsbConnected():
                 self.setTimer(15)
             elif self.readGlucoseValues():
+                self.ts_usb_reset = time.time() + 360
                 self.setTimer(30)
             else:
+                if self.usb_reset_cmd is not None:
+                    ts_now = time.time()
+                    if ts_now > self.ts_usb_reset:
+                        self.logger.debug('performing usb reset')
+                        os.system(self.usb_reset_cmd)
+                        ts_now = time.time()
+                        self.ts_usb_reset = ts_now + 360
                 self.setTimer(10)
 
     def ensureUsbConnected(self):

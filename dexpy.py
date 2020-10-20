@@ -74,7 +74,7 @@ class DexPy:
 
         self.dexcom_receiver_session = None
         if args.USB_RECEIVER is not None and args.USB_RECEIVER:
-            self.dexcom_receiver_session = DexcomReceiverSession(self.glucoseValueCallback)
+            self.dexcom_receiver_session = DexcomReceiverSession(self.glucoseValueCallback, args.USB_RESET_COMMAND)
 
         for sig in ('HUP', 'INT'):
             signal.signal(getattr(signal, 'SIG' + sig), lambda _0, _1: self.exit_event.set())
@@ -305,6 +305,7 @@ if __name__ == '__main__':
     parser.add_argument("--NIGHTSCOUT-TOKEN", required=False, default=None, nargs="?")
     parser.add_argument("--DB-PATH", required=False, default="dexpy.db", nargs="?")
     parser.add_argument("--USB-RECEIVER", required=False, default=True, nargs="?")
+    parser.add_argument("--USB-RESET-COMMAND", required=False, default=None, nargs="?")
     args = parser.parse_args()
 
     if args.CONFIGURATION is not None:
