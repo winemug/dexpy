@@ -20,20 +20,20 @@ from dexcom_share import DexcomShareSession
 
 
 class DexPy:
-    def __init__(self, args):
+    def __init__(self, console_args):
         self.logger = logging.getLogger('DEXPY')
 
-        self.args = args
+        self.args = console_args
         self.exit_event = threading.Event()
         self.message_published_event = threading.Event()
 
         self.initialize_db()
         self.mqtt_client = None
-        if args.MQTT_SERVER is not None:
-            self.mqtt_client = mqttc.Client(client_id=args.MQTT_CLIENTID, clean_session=True, protocol=MQTTv311,
+        if self.args.MQTT_SERVER is not None:
+            self.mqtt_client = mqttc.Client(client_id=self.args.MQTT_CLIENTID, clean_session=True, protocol=MQTTv311,
                                             transport="tcp")
 
-            if args.MQTT_SSL != "":
+            if self.args.MQTT_SSL != "":
                 self.mqtt_client.tls_set(certfile=None,
                                          keyfile=None, cert_reqs=ssl.CERT_REQUIRED,
                                          tls_version=ssl.PROTOCOL_TLSv1_2, ciphers=None)
@@ -45,10 +45,10 @@ class DexPy:
             self.mqtt_client.on_publish = self.on_mqtt_message_publish
 
         self.influx_client = None
-        if args.INFLUXDB_SERVER is not None:
-            self.influx_client = InfluxDBClient(args.INFLUXDB_SERVER, args.INFLUXDB_PORT, args.INFLUXDB_USERNAME,
-                                                args.INFLUXDB_PASSWORD, args.INFLUXDB_DATABASE,
-                                                ssl=args.INFLUXDB_SSL, verify_ssl=args.INFLUXDB_SSL_VERIFY)
+        if self.args.INFLUXDB_SERVER is not None:
+            self.influx_client = InfluxDBClient(self.args.INFLUXDB_SERVER, self.args.INFLUXDB_PORT, self.args.INFLUXDB_USERNAME,
+                                                self.args.INFLUXDB_PASSWORD, self.args.INFLUXDB_DATABASE,
+                                                ssl=self.args.INFLUXDB_SSL, verify_ssl=self.args.INFLUXDB_SSL_VERIFY)
 
         self.callback_queue = Queue()
         self.glucose_values = []
@@ -57,19 +57,19 @@ class DexPy:
         self.ns_pending = []
 
         self.ns_session = None
-        if args.NIGHTSCOUT_URL is not None:
+        if self.args.NIGHTSCOUT_URL is not None:
             self.ns_session = requests.Session()
 
         self.dexcom_share_session = None
-        if args.DEXCOM_SHARE_SERVER is not None:
+        if self.args.DEXCOM_SHARE_SERVER is not None:
             self.logger.info("starting dexcom share session")
-            self.dexcom_share_session = DexcomShareSession(args.DEXCOM_SHARE_SERVER,
-                                                           args.DEXCOM_SHARE_USERNAME,
-                                                           args.DEXCOM_SHARE_PASSWORD,
+            self.dexcom_share_session = DexcomShareSession(self.args.DEXCOM_SHARE_SERVER,
+                                                           self.args.DEXCOM_SHARE_USERNAME,
+                                                           self.args.DEXCOM_SHARE_PASSWORD,
                                                            self.glucose_values_received)
 
         self.dexcom_receiver_session = None
-        if args.USB_RECEIVER is not None and args.USB_RECEIVER:
+        if self.args.USB_RECEIVER is not None and self.args.USB_RECEIVER:
             self.dexcom_receiver_session = DexcomReceiverSession(self.glucose_values_received)
 
         for sig in ('HUP', 'INT'):
@@ -79,7 +79,7 @@ class DexPy:
         if self.mqtt_client is not None:
             self.logger.info("starting mqtt service connection")
             self.mqtt_client.reconnect_delay_set(min_delay=15, max_delay=120)
-            self.mqtt_client.connect_async(args.MQTT_SERVER, port=args.MQTT_PORT, keepalive=60)
+            self.mqtt_client.connect_async(self.args.MQTT_SERVER, port=self.args.MQTT_PORT, keepalive=60)
             self.mqtt_client.retry_first_connection = True
             self.mqtt_client.loop_start()
 
@@ -172,7 +172,7 @@ class DexPy:
         if self.mqtt_client is not None:
             for gv in new_values:
                 msg = "%d|%s|%s" % (gv.st, gv.trend, gv.value)
-                x, mid = self.mqtt_client.publish(args.MQTT_TOPIC, payload=msg, retain=last_gv, qos=1)
+                x, mid = self.mqtt_client.publish(self.args.MQTT_TOPIC, payload=msg, qos=1)
                 self.mqtt_pending[mid] = gv
                 self.logger.debug("publish to mqtt requested with message id: " + str(mid))
 
@@ -192,15 +192,15 @@ class DexPy:
                 self.logger.error("Error writing to influxdb", exc_info=ex)
 
         if self.ns_session is not None:
-            apiUrl = args.NIGHTSCOUT_URL
+            apiUrl = self.args.NIGHTSCOUT_URL
             if apiUrl[-1] != "/":
                 apiUrl += "/"
             apiUrl += "api/v1/entries/"
             headers = {"Content-Type": "application/json"}
-            if args.NIGHTSCOUT_SECRET:
-                headers["api-secret"] = args.NIGHTSCOUT_SECRET
-            if args.NIGHTSCOUT_TOKEN:
-                apiUrl += "?token=" + args.NIGHTSCOUT_TOKEN
+            if self.args.NIGHTSCOUT_SECRET:
+                headers["api-secret"] = self.args.NIGHTSCOUT_SECRET
+            if self.args.NIGHTSCOUT_TOKEN:
+                apiUrl += "?token=" + self.args.NIGHTSCOUT_TOKEN
 
             for gv in new_values:
                 payload = {"sgv": gv.value, "type": "sgv", "direction": gv.trend_string(), "date": gv.st * 1000}
